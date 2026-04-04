@@ -19,6 +19,7 @@ import {
   listDocuments,
   extractJson,
 } from "@/lib/api";
+import { ModelSelector } from "@/components/ModelSelector";
 
 const EXAMPLE_SCHEMA = JSON.stringify(
   {
@@ -41,6 +42,7 @@ export function ExtractPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [model, setModel] = useState("");
 
   useEffect(() => {
     listDocuments().then((d) =>
@@ -60,6 +62,7 @@ export function ExtractPage() {
         selectedDoc,
         parsed,
         instructions.trim() || undefined,
+        model || undefined,
       );
       setResult(res);
     } catch (e) {
@@ -71,7 +74,7 @@ export function ExtractPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedDoc, schema, instructions]);
+  }, [selectedDoc, schema, instructions, model]);
 
   function handleCopy() {
     if (!result) return;
@@ -87,13 +90,16 @@ export function ExtractPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-          <Braces className="h-6 w-6" /> Structured Extraction
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Extract structured JSON data from your documents using AI.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+            <Braces className="h-6 w-6" /> Structured Extraction
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Extract structured JSON data from your documents using AI.
+          </p>
+        </div>
+        <ModelSelector value={model} onChange={setModel} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

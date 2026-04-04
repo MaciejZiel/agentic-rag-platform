@@ -13,6 +13,7 @@ import {
   listDocuments,
   askStream,
 } from "@/lib/api";
+import { ModelSelector } from "@/components/ModelSelector";
 
 interface Message {
   role: "user" | "assistant";
@@ -29,6 +30,7 @@ export function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [model, setModel] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -58,7 +60,7 @@ export function ChatPage() {
       // Add empty assistant message that we'll stream into
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
-      for await (const event of askStream(question, docIds)) {
+      for await (const event of askStream(question, docIds, 5, model || undefined)) {
         if (event.type === "sources" && event.sources) {
           sources = event.sources.map((s) => ({
             document_id: s.document_id,
@@ -114,9 +116,12 @@ export function ChatPage() {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Sparkles className="h-5 w-5" /> Chat with your documents
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Sparkles className="h-5 w-5" /> Chat with your documents
+          </h2>
+          <ModelSelector value={model} onChange={setModel} />
+        </div>
         {docs.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2">
             {docs.map((doc) => (
