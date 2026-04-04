@@ -13,6 +13,7 @@ from app.models.query import ChatQuery, ExtractionRequest  # noqa: F401
 from app.models.tenant import Tenant, ApiKey  # noqa: F401
 from app.models.conversation import Conversation, ConversationMessage  # noqa: F401
 from app.models.webhook import Webhook  # noqa: F401
+from app.models.user import User  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.sync_database_url)
