@@ -8,6 +8,7 @@ from app.clients.qdrant_client import VectorStoreClient
 from app.core.logging import get_logger
 from app.models.document import DocumentChunk, DocumentStatus
 from app.repositories.document_repository import DocumentRepository
+from app.services.webhook_service import WebhookService
 from app.utils.chunking import ChunkStrategy, chunk_text
 from app.utils.text_extraction import extract_text
 
@@ -100,9 +101,26 @@ class IndexingService:
                 chunks=len(db_chunks),
             )
 
+            # Fire webhook
+            webhook_svc = WebhookService(self.db)
+            await webhook_svc.fire_event("indexing.completed", {
+                "document_id": str(document_id),
+                "chunk_count": len(db_chunks),
+            })
+
         except Exception as e:
             logger.error("indexing_failed", document_id=str(document_id), error=str(e))
             await self.repo.update_status(
                 document_id, DocumentStatus.FAILED, error_message=str(e)
             )
+
+            try:
+                webhook_svc = WebhookService(self.db)
+                await webhook_svc.fire_event("indexing.failed", {
+                    "document_id": str(document_id),
+                    "error": str(e),
+                })
+            except Exception:
+                pass
+
             raise
