@@ -75,11 +75,12 @@ export async function askQuestion(
   question: string,
   documentIds?: string[],
   topK = 5,
+  model?: string,
 ): Promise<AskResponse> {
   const res = await fetch(`${BASE}/qa/ask`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question, document_ids: documentIds, top_k: topK }),
+    body: JSON.stringify({ question, document_ids: documentIds, top_k: topK, model }),
   });
   if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
   return res.json();
@@ -89,11 +90,12 @@ export async function* askStream(
   question: string,
   documentIds?: string[],
   topK = 5,
+  model?: string,
 ): AsyncGenerator<SSEEvent> {
   const res = await fetch(`${BASE}/qa/ask/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question, document_ids: documentIds, top_k: topK }),
+    body: JSON.stringify({ question, document_ids: documentIds, top_k: topK, model }),
   });
   if (!res.ok) throw new Error("Stream failed");
   const reader = res.body!.getReader();
@@ -114,10 +116,27 @@ export async function* askStream(
   }
 }
 
+export interface ModelInfo {
+  id: string;
+  name: string;
+  provider: string;
+}
+
+export interface ModelsResponse {
+  models: ModelInfo[];
+  default: string;
+}
+
+export async function listModels(): Promise<ModelsResponse> {
+  const res = await fetch(`${BASE}/models`);
+  return res.json();
+}
+
 export async function extractJson(
   documentId: string,
   schemaDefinition: Record<string, unknown>,
   instructions?: string,
+  model?: string,
 ): Promise<ExtractionResponse> {
   const res = await fetch(`${BASE}/extract/json`, {
     method: "POST",
@@ -126,6 +145,7 @@ export async function extractJson(
       document_id: documentId,
       schema_definition: schemaDefinition,
       instructions,
+      model,
     }),
   });
   if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
