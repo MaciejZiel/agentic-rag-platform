@@ -19,6 +19,7 @@ import {
   indexDocument,
   deleteDocument,
 } from "@/lib/api";
+import { DocumentDetail } from "@/components/DocumentDetail";
 
 const statusConfig = {
   uploaded: { icon: Clock, variant: "secondary" as const, label: "Uploaded" },
@@ -44,6 +45,7 @@ export function DocumentsPage() {
   const [indexingIds, setIndexingIds] = useState<Set<string>>(new Set());
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
 
   const refresh = useCallback(async () => {
     const data = await listDocuments();
@@ -164,7 +166,7 @@ export function DocumentsPage() {
           const isIndexing = indexingIds.has(doc.id);
 
           return (
-            <Card key={doc.id}>
+            <Card key={doc.id} className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setSelectedDoc(doc)}>
               <CardContent className="flex items-center gap-4 py-4">
                 <div className="rounded-lg bg-muted p-2.5">
                   <FileText className="h-5 w-5 text-muted-foreground" />
@@ -198,7 +200,7 @@ export function DocumentsPage() {
                     size="sm"
                     variant="outline"
                     disabled={isIndexing}
-                    onClick={() => handleIndex(doc.id)}
+                    onClick={(e) => { e.stopPropagation(); handleIndex(doc.id); }}
                   >
                     {isIndexing ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -212,7 +214,7 @@ export function DocumentsPage() {
                   size="sm"
                   variant="ghost"
                   className="text-destructive hover:text-destructive"
-                  onClick={() => handleDelete(doc.id)}
+                  onClick={(e) => { e.stopPropagation(); handleDelete(doc.id); }}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -231,6 +233,12 @@ export function DocumentsPage() {
           </p>
         )}
       </div>
+
+      <DocumentDetail
+        document={selectedDoc}
+        open={selectedDoc !== null}
+        onClose={() => setSelectedDoc(null)}
+      />
     </div>
   );
 }
