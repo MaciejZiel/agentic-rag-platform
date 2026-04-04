@@ -20,7 +20,18 @@ import { UsagePage } from "@/pages/Usage";
 import { SettingsPage } from "@/pages/Settings";
 import { SubscriptionsPage } from "@/pages/Subscriptions";
 import { LoginPage } from "@/pages/Login";
+import { TwoFactorVerify } from "@/pages/TwoFactorVerify";
 import { ThemeToggle } from "@/components/ThemeToggle";
+
+export interface Session {
+  apiKey: string;
+  tenantName: string;
+  email?: string;
+  twoFactorEnabled?: boolean;
+  twoFactorVerified?: boolean;
+  accountType?: "personal" | "organization";
+  avatarUrl?: string;
+}
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -33,16 +44,29 @@ const navItems = [
 ];
 
 export default function App() {
-  const [session, setSession] = useState<{
-    apiKey: string;
-    tenantName: string;
-  } | null>(() => {
+  const [session, setSession] = useState<Session | null>(() => {
     const saved = localStorage.getItem("session");
     return saved ? JSON.parse(saved) : null;
   });
 
-  function handleLogin(apiKey: string, tenantName: string) {
-    const s = { apiKey, tenantName };
+  function handleLogin(apiKey: string, tenantName: string, email?: string) {
+    const twoFAState = localStorage.getItem("2fa_enabled");
+    const twoFactorEnabled = twoFAState === "true";
+
+    const s: Session = {
+      apiKey,
+      tenantName,
+      email,
+      twoFactorEnabled,
+      twoFactorVerified: !twoFactorEnabled, // skip verify if 2FA not enabled
+    };
+    setSession(s);
+    localStorage.setItem("session", JSON.stringify(s));
+  }
+
+  function handle2FAVerified() {
+    if (!session) return;
+    const s: Session = { ...session, twoFactorVerified: true };
     setSession(s);
     localStorage.setItem("session", JSON.stringify(s));
   }
@@ -52,8 +76,27 @@ export default function App() {
     localStorage.removeItem("session");
   }
 
+  function handleSessionUpdate(updates: Partial<Session>) {
+    if (!session) return;
+    const s = { ...session, ...updates };
+    setSession(s);
+    localStorage.setItem("session", JSON.stringify(s));
+  }
+
+  // Not logged in
   if (!session) {
     return <LoginPage onLogin={handleLogin} />;
+  }
+
+  // Logged in but 2FA not yet verified
+  if (session.twoFactorEnabled && !session.twoFactorVerified) {
+    return (
+      <TwoFactorVerify
+        email={session.email}
+        onVerified={handle2FAVerified}
+        onCancel={handleLogout}
+      />
+    );
   }
 
   return (
@@ -96,8 +139,8 @@ export default function App() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium truncate">{session.tenantName}</p>
-                <p className="text-[10px] text-muted-foreground">
-                  {session.apiKey ? "Authenticated" : "Guest"}
+                <p className="text-[10px] text-muted-foreground truncate">
+                  {session.email || (session.apiKey ? "Authenticated" : "Guest")}
                 </p>
               </div>
               <Button
@@ -126,7 +169,15 @@ export default function App() {
             <Route path="/extract" element={<ExtractPage />} />
             <Route path="/usage" element={<UsagePage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
+            <Route
+              path="/settings"
+              element={
+                <SettingsPage
+                  session={session}
+                  onSessionUpdate={handleSessionUpdate}
+                />
+              }
+            />
           </Routes>
         </main>
       </div>
