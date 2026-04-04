@@ -25,8 +25,10 @@ def index_document_task(self, document_id: str) -> dict:
     logger.info("task_index_start", document_id=document_id)
 
     async def _run():
+        from app.core.dependencies import get_llm_client, get_vector_store
+
         async with async_session_factory() as session:
-            service = IndexingService(session)
+            service = IndexingService(session, get_llm_client(), get_vector_store())
             await service.index_document(uuid.UUID(document_id))
             await session.commit()
 
@@ -58,12 +60,14 @@ def run_job_task(self, job_id: str) -> dict:
             await session.commit()
 
             try:
+                from app.core.dependencies import get_llm_client, get_vector_store
+
                 payload = json.loads(job.payload) if job.payload else {}
 
                 if job.job_type == JobType.INDEX_DOCUMENT:
                     from app.services.indexing_service import IndexingService
 
-                    service = IndexingService(session)
+                    service = IndexingService(session, get_llm_client(), get_vector_store())
                     doc_id = uuid.UUID(payload["document_id"])
                     await service.index_document(doc_id)
                     await repo.update_status(
@@ -74,7 +78,7 @@ def run_job_task(self, job_id: str) -> dict:
                     from app.services.extraction_service import ExtractionService
                     from app.schemas.extraction import ExtractionRequest
 
-                    service = ExtractionService(session)
+                    service = ExtractionService(session, get_llm_client())
                     req = ExtractionRequest(**payload)
                     resp = await service.extract(req)
                     await repo.update_status(

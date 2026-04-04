@@ -17,11 +17,13 @@ EMBEDDING_BATCH_SIZE = 64
 
 
 class IndexingService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(
+        self, db: AsyncSession, llm: LLMClient, vector_store: VectorStoreClient
+    ) -> None:
         self.db = db
         self.repo = DocumentRepository(db)
-        self.llm = LLMClient()
-        self.vector_store = VectorStoreClient()
+        self.llm = llm
+        self.vector_store = vector_store
 
     async def index_document(self, document_id: uuid.UUID) -> None:
         doc = await self.repo.get_by_id(document_id)

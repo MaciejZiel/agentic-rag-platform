@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.schemas.document import DocumentListOut, DocumentOut
+from app.services.document_service import DocumentService
 
 router = APIRouter()
 
@@ -14,8 +15,6 @@ async def upload_document(
     file: UploadFile,
     db: AsyncSession = Depends(get_db),
 ) -> DocumentOut:
-    from app.services.document_service import DocumentService
-
     service = DocumentService(db)
     return await service.upload(file)
 
@@ -25,8 +24,6 @@ async def index_document(
     document_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ) -> DocumentOut:
-    from app.services.document_service import DocumentService
-
     service = DocumentService(db)
     return await service.start_indexing(document_id)
 
@@ -37,8 +34,6 @@ async def list_documents(
     limit: int = 20,
     db: AsyncSession = Depends(get_db),
 ) -> DocumentListOut:
-    from app.services.document_service import DocumentService
-
     service = DocumentService(db)
     return await service.list_documents(skip=skip, limit=limit)
 
@@ -48,7 +43,5 @@ async def get_document(
     document_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ) -> DocumentOut:
-    from app.services.document_service import DocumentService
-
     service = DocumentService(db)
     return await service.get_document(document_id)

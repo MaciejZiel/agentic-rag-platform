@@ -17,10 +17,12 @@ logger = get_logger(__name__)
 
 
 class QAService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(
+        self, db: AsyncSession, llm: LLMClient, vector_store: VectorStoreClient
+    ) -> None:
         self.db = db
-        self.llm = LLMClient()
-        self.vector_store = VectorStoreClient()
+        self.llm = llm
+        self.vector_store = vector_store
         self.doc_repo = DocumentRepository(db)
         self.query_repo = QueryRepository(db)
 

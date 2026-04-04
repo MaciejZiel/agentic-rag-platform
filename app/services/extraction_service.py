@@ -17,9 +17,9 @@ logger = get_logger(__name__)
 
 
 class ExtractionService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, llm: LLMClient) -> None:
         self.db = db
-        self.llm = LLMClient()
+        self.llm = llm
         self.doc_repo = DocumentRepository(db)
         self.query_repo = QueryRepository(db)
 
