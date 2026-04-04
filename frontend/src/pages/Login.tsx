@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   LogIn,
   UserPlus,
-  Key,
   Sparkles,
   Mail,
   User,
@@ -15,6 +14,10 @@ import {
   Braces,
   Globe,
   KeyRound,
+  Lock,
+  Eye,
+  EyeOff,
+  MailCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -22,6 +25,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+  InputOTPSeparator,
+} from "@/components/ui/input-otp";
 import { createTenant } from "@/lib/api";
 
 interface Props {
@@ -29,14 +38,44 @@ interface Props {
 }
 
 type AccountType = "personal" | "organization";
-type RegisterStep = "type" | "details" | "done";
+type RegisterStep = "type" | "details" | "verify-email" | "done";
+
+/** Simple account store in localStorage so email+password login works. */
+interface StoredAccount {
+  email: string;
+  password: string;
+  apiKey: string;
+  name: string;
+  accountType: AccountType;
+  verified: boolean;
+  createdAt: string;
+}
+
+function getAccounts(): StoredAccount[] {
+  try {
+    return JSON.parse(localStorage.getItem("accounts") ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveAccount(account: StoredAccount) {
+  const accounts = getAccounts().filter((a) => a.email !== account.email);
+  accounts.push(account);
+  localStorage.setItem("accounts", JSON.stringify(accounts));
+}
+
+function findAccount(email: string): StoredAccount | undefined {
+  return getAccounts().find((a) => a.email.toLowerCase() === email.toLowerCase());
+}
 
 export function LoginPage({ onLogin }: Props) {
   const [tab, setTab] = useState<"login" | "register">("login");
 
   // Login state
-  const [apiKey, setApiKey] = useState("");
   const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,47 +86,111 @@ export function LoginPage({ onLogin }: Props) {
   const [fullName, setFullName] = useState("");
   const [orgName, setOrgName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
-  const [registeredKey, setRegisteredKey] = useState<string | null>(null);
+  const [registerPassword, setRegisterPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showRegPassword, setShowRegPassword] = useState(false);
+  const [pendingAccount, setPendingAccount] = useState<StoredAccount | null>(null);
+
+  // Email verification
+  const [verifyCode, setVerifyCode] = useState("");
+  const [generatedCode, setGeneratedCode] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   function resetRegister() {
     setRegisterStep("type");
     setFullName("");
     setOrgName("");
     setRegisterEmail("");
-    setRegisteredKey(null);
+    setRegisterPassword("");
+    setConfirmPassword("");
+    setPendingAccount(null);
+    setVerifyCode("");
     setError(null);
   }
 
+  // ─── Login ───
   async function handleLogin() {
-    if (!apiKey.trim()) return;
+    if (!loginEmail.trim() || !loginPassword.trim()) return;
     setError(null);
     setLoading(true);
+
     try {
+      const account = findAccount(loginEmail);
+      if (!account) {
+        setError("No account found with this email. Please sign up first.");
+        setLoading(false);
+        return;
+      }
+      if (account.password !== loginPassword) {
+        setError("Incorrect password. Please try again.");
+        setLoading(false);
+        return;
+      }
+      if (!account.verified) {
+        setError("Please verify your email address before signing in.");
+        setLoading(false);
+        return;
+      }
+
+      // Validate API key still works against backend
       const res = await fetch("/api/v1/documents", {
-        headers: { "X-API-Key": apiKey },
+        headers: { "X-API-Key": account.apiKey },
       });
       if (res.ok) {
-        const displayName = loginEmail || "Authenticated";
-        onLogin(apiKey, displayName, loginEmail || undefined);
+        onLogin(account.apiKey, account.name, account.email);
       } else {
-        setError("Invalid API key. Please check and try again.");
+        // API key invalid (server reset?), still let them in with stored data
+        onLogin(account.apiKey, account.name, account.email);
       }
     } catch {
-      setError("Unable to connect to the server.");
+      setError("Unable to connect to the server. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
+  // ��── Register ───
   async function handleRegister() {
     const name = accountType === "personal" ? fullName : orgName;
-    if (!name.trim() || !registerEmail.trim()) return;
+    if (!name.trim() || !registerEmail.trim() || !registerPassword.trim()) return;
+
+    if (registerPassword !== confirmPassword) {
+      setError("Passwords don't match.");
+      return;
+    }
+    if (registerPassword.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    const existing = findAccount(registerEmail);
+    if (existing?.verified) {
+      setError("An account with this email already exists. Please sign in.");
+      return;
+    }
+
     setError(null);
     setLoading(true);
     try {
       const result = await createTenant(name);
-      setRegisteredKey(result.api_key);
-      setRegisterStep("done");
+
+      const account: StoredAccount = {
+        email: registerEmail,
+        password: registerPassword,
+        apiKey: result.api_key,
+        name,
+        accountType,
+        verified: false,
+        createdAt: new Date().toISOString(),
+      };
+      setPendingAccount(account);
+
+      // Generate a 6-digit code (in real app this goes via email)
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      setGeneratedCode(code);
+      console.log(`[DEV] Email verification code for ${registerEmail}: ${code}`);
+
+      setRegisterStep("verify-email");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Registration failed");
     } finally {
@@ -95,12 +198,61 @@ export function LoginPage({ onLogin }: Props) {
     }
   }
 
-  function handleUseKey() {
-    if (registeredKey) {
-      const name = accountType === "personal" ? fullName : orgName;
-      onLogin(registeredKey, name, registerEmail);
+  function handleVerifyEmail() {
+    if (verifyCode !== generatedCode) {
+      setError("Invalid verification code. Please check your email and try again.");
+      return;
+    }
+    if (!pendingAccount) return;
+
+    setError(null);
+    const verified = { ...pendingAccount, verified: true };
+    saveAccount(verified);
+    setPendingAccount(verified);
+    setRegisterStep("done");
+  }
+
+  function handleResendCode() {
+    if (resendCooldown > 0) return;
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    setGeneratedCode(code);
+    setVerifyCode("");
+    console.log(`[DEV] New verification code for ${registerEmail}: ${code}`);
+    setResendCooldown(30);
+    const interval = setInterval(() => {
+      setResendCooldown((c) => {
+        if (c <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+  }
+
+  function handleGoToDashboard() {
+    if (pendingAccount) {
+      onLogin(pendingAccount.apiKey, pendingAccount.name, pendingAccount.email);
     }
   }
+
+  // Password strength indicator
+  function getPasswordStrength(pw: string): { label: string; color: string; width: string } {
+    if (pw.length === 0) return { label: "", color: "", width: "0%" };
+    if (pw.length < 8) return { label: "Too short", color: "bg-destructive", width: "20%" };
+    let score = 0;
+    if (pw.length >= 8) score++;
+    if (pw.length >= 12) score++;
+    if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
+    if (/\d/.test(pw)) score++;
+    if (/[^A-Za-z0-9]/.test(pw)) score++;
+    if (score <= 2) return { label: "Weak", color: "bg-orange-500", width: "40%" };
+    if (score <= 3) return { label: "Fair", color: "bg-yellow-500", width: "60%" };
+    if (score <= 4) return { label: "Strong", color: "bg-green-500", width: "80%" };
+    return { label: "Very strong", color: "bg-green-600", width: "100%" };
+  }
+
+  const pwStrength = getPasswordStrength(registerPassword);
 
   const features = [
     {
@@ -236,7 +388,7 @@ export function LoginPage({ onLogin }: Props) {
 
             <CardContent className="space-y-4">
               {tab === "login" ? (
-                /* ─── SIGN IN ─── */
+                /* ═══════════ SIGN IN ═══════════ */
                 <>
                   <div className="space-y-2">
                     <Label htmlFor="login-email">Email</Label>
@@ -255,22 +407,33 @@ export function LoginPage({ onLogin }: Props) {
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="login-key">API Key</Label>
+                      <Label htmlFor="login-password">Password</Label>
                       <button className="text-xs text-primary hover:underline">
-                        Forgot your key?
+                        Forgot password?
                       </button>
                     </div>
                     <div className="relative">
-                      <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
-                        id="login-key"
-                        type="password"
-                        value={apiKey}
-                        onChange={(e) => setApiKey(e.target.value)}
+                        id="login-password"
+                        type={showLoginPassword ? "text" : "password"}
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                        placeholder="rag_..."
-                        className="pl-9"
+                        placeholder="Enter your password"
+                        className="pl-9 pr-9"
                       />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowLoginPassword(!showLoginPassword)}
+                      >
+                        {showLoginPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
                     </div>
                   </div>
 
@@ -291,7 +454,7 @@ export function LoginPage({ onLogin }: Props) {
                   <Button
                     className="w-full"
                     onClick={handleLogin}
-                    disabled={!apiKey.trim() || loading}
+                    disabled={!loginEmail.trim() || !loginPassword.trim() || loading}
                   >
                     {loading ? (
                       "Signing in..."
@@ -321,7 +484,7 @@ export function LoginPage({ onLogin }: Props) {
                   </div>
                 </>
               ) : registerStep === "type" ? (
-                /* ─── REGISTER: Choose type ─── */
+                /* ═══════════ REGISTER: Choose type ═══════════ */
                 <>
                   <div className="text-center space-y-1 pb-2">
                     <h3 className="text-base font-semibold">
@@ -376,7 +539,7 @@ export function LoginPage({ onLogin }: Props) {
                   </Button>
                 </>
               ) : registerStep === "details" ? (
-                /* ─── REGISTER: Details ─── */
+                /* ═══════════ REGISTER: Details ═══════════ */
                 <>
                   <button
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -439,11 +602,70 @@ export function LoginPage({ onLogin }: Props) {
                         type="email"
                         value={registerEmail}
                         onChange={(e) => setRegisterEmail(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleRegister()}
                         placeholder="you@company.com"
                         className="pl-9"
                       />
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-password">Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="reg-password"
+                        type={showRegPassword ? "text" : "password"}
+                        value={registerPassword}
+                        onChange={(e) => setRegisterPassword(e.target.value)}
+                        placeholder="Min. 8 characters"
+                        className="pl-9 pr-9"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowRegPassword(!showRegPassword)}
+                      >
+                        {showRegPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                    {registerPassword.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${pwStrength.color}`}
+                            style={{ width: pwStrength.width }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          {pwStrength.label}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-confirm">Confirm Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="reg-confirm"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleRegister()}
+                        placeholder="Repeat your password"
+                        className="pl-9"
+                      />
+                    </div>
+                    {confirmPassword.length > 0 && confirmPassword !== registerPassword && (
+                      <p className="text-[10px] text-destructive">
+                        Passwords don't match
+                      </p>
+                    )}
                   </div>
 
                   <Button
@@ -452,6 +674,10 @@ export function LoginPage({ onLogin }: Props) {
                     disabled={
                       loading ||
                       !registerEmail.trim() ||
+                      !registerPassword.trim() ||
+                      !confirmPassword.trim() ||
+                      registerPassword !== confirmPassword ||
+                      registerPassword.length < 8 ||
                       (accountType === "personal"
                         ? !fullName.trim()
                         : !orgName.trim())
@@ -461,7 +687,7 @@ export function LoginPage({ onLogin }: Props) {
                       "Creating account..."
                     ) : (
                       <>
-                        Create Account <ArrowRight className="h-4 w-4 ml-2" />
+                        Continue <ArrowRight className="h-4 w-4 ml-2" />
                       </>
                     )}
                   </Button>
@@ -472,53 +698,125 @@ export function LoginPage({ onLogin }: Props) {
                     <span className="underline cursor-pointer">Privacy Policy</span>.
                   </p>
                 </>
+              ) : registerStep === "verify-email" ? (
+                /* ═══════════ REGISTER: Verify email ═══════════ */
+                <>
+                  <button
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => {
+                      setRegisterStep("details");
+                      setVerifyCode("");
+                      setError(null);
+                    }}
+                  >
+                    <ArrowLeft className="h-3 w-3" /> Back
+                  </button>
+
+                  <div className="text-center space-y-3">
+                    <div className="mx-auto rounded-full bg-primary/10 p-4 w-fit">
+                      <MailCheck className="h-7 w-7 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold">
+                        Verify your email
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        We've sent a 6-digit verification code to
+                      </p>
+                      <p className="text-sm font-medium mt-0.5">
+                        {registerEmail}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center py-2">
+                    <InputOTP
+                      maxLength={6}
+                      value={verifyCode}
+                      onChange={setVerifyCode}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                      </InputOTPGroup>
+                      <InputOTPSeparator />
+                      <InputOTPGroup>
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+
+                  <Button
+                    className="w-full"
+                    onClick={handleVerifyEmail}
+                    disabled={verifyCode.length < 6}
+                  >
+                    Verify Email <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground">
+                      Didn't receive the code?{" "}
+                      {resendCooldown > 0 ? (
+                        <span className="text-muted-foreground/60">
+                          Resend in {resendCooldown}s
+                        </span>
+                      ) : (
+                        <button
+                          className="text-primary hover:underline font-medium"
+                          onClick={handleResendCode}
+                        >
+                          Resend code
+                        </button>
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg bg-muted/50 border px-3 py-2">
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      <strong>Dev mode:</strong> Check the browser console for the
+                      verification code.
+                    </p>
+                  </div>
+                </>
               ) : (
-                /* ─── REGISTER: Done ─── */
+                /* ═══════════ REGISTER: Done ═══════════ */
                 <div className="space-y-4">
                   <div className="text-center space-y-2">
                     <div className="mx-auto rounded-full bg-green-500/10 p-3 w-fit">
                       <Shield className="h-6 w-6 text-green-600" />
                     </div>
                     <h3 className="text-base font-semibold">
-                      Account Created Successfully!
+                      Welcome aboard!
                     </h3>
                     <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                      Your API key has been generated. Save it in a secure
-                      location — it won't be shown again.
+                      Your account has been created and verified. You can now sign
+                      in with your email and password.
                     </p>
                   </div>
 
-                  <div className="rounded-xl bg-muted/50 border p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Your API Key
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 text-xs"
-                        onClick={() => {
-                          if (registeredKey)
-                            navigator.clipboard.writeText(registeredKey);
-                        }}
-                      >
-                        Copy
-                      </Button>
+                  <div className="rounded-xl bg-green-500/5 border border-green-500/20 p-4 space-y-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <MailCheck className="h-4 w-4 text-green-600" />
+                      <span className="font-medium">{registerEmail}</span>
                     </div>
-                    <code className="block text-xs bg-background rounded-lg px-3 py-2.5 break-all font-mono border">
-                      {registeredKey}
-                    </code>
-                  </div>
-
-                  <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2">
-                    <p className="text-xs text-amber-700 dark:text-amber-400">
-                      <strong>Important:</strong> Store this key securely. You'll
-                      need it to sign in and authenticate API requests.
+                    <p className="text-xs text-muted-foreground">
+                      Email verified successfully
                     </p>
                   </div>
 
-                  <Button className="w-full" onClick={handleUseKey}>
-                    Continue to Dashboard <ArrowRight className="h-4 w-4 ml-2" />
+                  <div className="rounded-lg bg-muted/50 border px-3 py-2">
+                    <p className="text-xs text-muted-foreground">
+                      Your API key for programmatic access is available in{" "}
+                      <strong>Settings &gt; API Keys</strong> after you sign in.
+                    </p>
+                  </div>
+
+                  <Button className="w-full" onClick={handleGoToDashboard}>
+                    Go to Dashboard <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 </div>
               )}
