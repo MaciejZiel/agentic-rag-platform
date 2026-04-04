@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Send, Loader2, FileText, Sparkles } from "lucide-react";
+import { Send, Loader2, FileText, Sparkles, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,7 @@ export function ChatPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [model, setModel] = useState("");
+  const [conversationId, setConversationId] = useState<string | undefined>();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,7 +61,7 @@ export function ChatPage() {
       // Add empty assistant message that we'll stream into
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
-      for await (const event of askStream(question, docIds, 5, model || undefined)) {
+      for await (const event of askStream(question, docIds, 5, model || undefined, conversationId)) {
         if (event.type === "sources" && event.sources) {
           sources = event.sources.map((s) => ({
             document_id: s.document_id,
@@ -80,6 +81,9 @@ export function ChatPage() {
             return updated;
           });
         } else if (event.type === "done") {
+          if (event.conversation_id) {
+            setConversationId(event.conversation_id);
+          }
           setMessages((prev) => {
             const updated = [...prev];
             updated[updated.length - 1] = {
@@ -120,7 +124,22 @@ export function ChatPage() {
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Sparkles className="h-5 w-5" /> Chat with your documents
           </h2>
-          <ModelSelector value={model} onChange={setModel} />
+          <div className="flex items-center gap-2">
+            {messages.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => {
+                  setMessages([]);
+                  setConversationId(undefined);
+                }}
+              >
+                <RotateCcw className="h-3 w-3 mr-1" /> New Chat
+              </Button>
+            )}
+            <ModelSelector value={model} onChange={setModel} />
+          </div>
         </div>
         {docs.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2">

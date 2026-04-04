@@ -44,6 +44,7 @@ export interface SSEEvent {
   type: "sources" | "token" | "done";
   sources?: Array<{ document_id: string; chunk_index: number; score: number }>;
   content?: string;
+  conversation_id?: string;
 }
 
 export async function uploadDocument(file: File): Promise<Document> {
@@ -96,11 +97,15 @@ export async function* askStream(
   documentIds?: string[],
   topK = 5,
   model?: string,
+  conversationId?: string,
 ): AsyncGenerator<SSEEvent> {
   const res = await fetch(`${BASE}/qa/ask/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question, document_ids: documentIds, top_k: topK, model }),
+    body: JSON.stringify({
+      question, document_ids: documentIds, top_k: topK, model,
+      conversation_id: conversationId,
+    }),
   });
   if (!res.ok) throw new Error("Stream failed");
   const reader = res.body!.getReader();
