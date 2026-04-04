@@ -12,6 +12,7 @@ class ExtractionRequest(BaseModel):
     instructions: str | None = Field(
         default=None, description="Additional instructions for extraction"
     )
+    model: str | None = Field(default=None, description="Override chat model")
 
 
 class ExtractionResponse(BaseModel):

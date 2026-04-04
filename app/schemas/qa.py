@@ -16,6 +16,7 @@ class AskRequest(BaseModel):
         default=None, description="Limit search to specific documents"
     )
     top_k: int = Field(default=5, ge=1, le=20)
+    model: str | None = Field(default=None, description="Override chat model")
 
 
 class AskResponse(BaseModel):
