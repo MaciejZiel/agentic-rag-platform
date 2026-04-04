@@ -34,11 +34,12 @@ class Settings(BaseSettings):
     qdrant_port: int = 6333
     qdrant_collection: str = "documents"
 
-    # OpenAI
-    openai_api_key: str = ""
-    openai_embedding_model: str = "text-embedding-3-small"
-    openai_chat_model: str = "gpt-4o-mini"
-    openai_embedding_dimensions: int = 1536
+    # LLM (OpenRouter)
+    openrouter_api_key: str = ""
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    embedding_model: str = "openai/text-embedding-3-small"
+    chat_model: str = "openai/gpt-4o-mini"
+    embedding_dimensions: int = 1536
 
     # Upload
     upload_dir: Path = Path("./uploads")

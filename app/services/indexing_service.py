@@ -3,7 +3,7 @@ from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.openai_client import OpenAIClient
+from app.clients.openai_client import LLMClient
 from app.clients.qdrant_client import VectorStoreClient
 from app.core.logging import get_logger
 from app.models.document import DocumentChunk, DocumentStatus
@@ -20,7 +20,7 @@ class IndexingService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
         self.repo = DocumentRepository(db)
-        self.openai = OpenAIClient()
+        self.llm = LLMClient()
         self.vector_store = VectorStoreClient()
 
     async def index_document(self, document_id: uuid.UUID) -> None:
@@ -59,7 +59,7 @@ class IndexingService:
             for batch_start in range(0, len(db_chunks), EMBEDDING_BATCH_SIZE):
                 batch = db_chunks[batch_start : batch_start + EMBEDDING_BATCH_SIZE]
                 texts = [c.content for c in batch]
-                embeddings = await self.openai.create_embeddings(texts)
+                embeddings = await self.llm.create_embeddings(texts)
 
                 ids = [str(c.id) for c in batch]
                 payloads = [
