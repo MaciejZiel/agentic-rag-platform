@@ -32,6 +32,12 @@ class IndexingService:
         try:
             await self.repo.update_status(document_id, DocumentStatus.PROCESSING)
 
+            # Clean up previous indexing artifacts for idempotency
+            deleted = await self.repo.delete_chunks_by_document(document_id)
+            if deleted:
+                self.vector_store.delete_by_document_id(document_id)
+                logger.info("previous_index_cleaned", document_id=str(document_id), chunks_deleted=deleted)
+
             file_path = Path(doc.file_path)
             text = extract_text(file_path, doc.content_type)
 

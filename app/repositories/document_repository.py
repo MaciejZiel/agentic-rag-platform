@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -54,6 +54,13 @@ class DocumentRepository:
         if doc:
             doc.chunk_count = count
             await self.db.flush()
+
+    async def delete_chunks_by_document(self, document_id: uuid.UUID) -> int:
+        result = await self.db.execute(
+            delete(DocumentChunk).where(DocumentChunk.document_id == document_id)
+        )
+        await self.db.flush()
+        return result.rowcount  # type: ignore[return-value]
 
     async def create_chunks(self, chunks: list[DocumentChunk]) -> list[DocumentChunk]:
         self.db.add_all(chunks)
