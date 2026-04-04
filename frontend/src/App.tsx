@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
 import {
   FileText,
@@ -7,7 +8,10 @@ import {
   CreditCard,
   BarChart3,
   Settings,
+  LogOut,
+  User,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { DashboardPage } from "@/pages/Dashboard";
 import { DocumentsPage } from "@/pages/Documents";
 import { ChatPage } from "@/pages/Chat";
@@ -15,6 +19,7 @@ import { ExtractPage } from "@/pages/Extract";
 import { UsagePage } from "@/pages/Usage";
 import { SettingsPage } from "@/pages/Settings";
 import { SubscriptionsPage } from "@/pages/Subscriptions";
+import { LoginPage } from "@/pages/Login";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navItems = [
@@ -28,6 +33,29 @@ const navItems = [
 ];
 
 export default function App() {
+  const [session, setSession] = useState<{
+    apiKey: string;
+    tenantName: string;
+  } | null>(() => {
+    const saved = localStorage.getItem("session");
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  function handleLogin(apiKey: string, tenantName: string) {
+    const s = { apiKey, tenantName };
+    setSession(s);
+    localStorage.setItem("session", JSON.stringify(s));
+  }
+
+  function handleLogout() {
+    setSession(null);
+    localStorage.removeItem("session");
+  }
+
+  if (!session) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
   return (
     <BrowserRouter>
       <div className="flex h-screen">
@@ -59,11 +87,34 @@ export default function App() {
               </NavLink>
             ))}
           </nav>
-          <div className="p-4 border-t flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              Powered by RAG + OpenRouter
-            </span>
-            <ThemeToggle />
+
+          {/* User section */}
+          <div className="p-3 border-t space-y-2">
+            <div className="flex items-center gap-2 px-1">
+              <div className="rounded-full bg-primary/10 p-1.5">
+                <User className="h-3 w-3 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium truncate">{session.tenantName}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {session.apiKey ? "Authenticated" : "Guest"}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-3 w-3" />
+              </Button>
+            </div>
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] text-muted-foreground">
+                RAG + OpenRouter
+              </span>
+              <ThemeToggle />
+            </div>
           </div>
         </aside>
 
