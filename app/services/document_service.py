@@ -33,15 +33,26 @@ class DocumentService:
         if ext not in SUPPORTED_EXTENSIONS:
             raise UnsupportedFileTypeError(ext)
 
-        content = await file.read()
-        file_size = len(content)
-        max_bytes = settings.max_upload_size_mb * 1024 * 1024
-        if file_size > max_bytes:
-            raise FileTooLargeError(settings.max_upload_size_mb)
-
         file_id = uuid.uuid4()
         file_path = settings.upload_dir / f"{file_id}{ext}"
-        file_path.write_bytes(content)
+        max_bytes = settings.max_upload_size_mb * 1024 * 1024
+
+        # Stream to disk in chunks — never hold the full file in memory
+        file_size = 0
+        try:
+            with file_path.open("wb") as f:
+                while chunk := await file.read(1024 * 256):  # 256 KB chunks
+                    file_size += len(chunk)
+                    if file_size > max_bytes:
+                        f.close()
+                        file_path.unlink(missing_ok=True)
+                        raise FileTooLargeError(settings.max_upload_size_mb)
+                    f.write(chunk)
+        except FileTooLargeError:
+            raise
+        except Exception:
+            file_path.unlink(missing_ok=True)
+            raise
 
         document = Document(
             id=file_id,
