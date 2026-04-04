@@ -52,6 +52,7 @@ class DocumentService:
             status=DocumentStatus.UPLOADED,
         )
         document = await self.repo.create(document)
+        await self.db.commit()
         logger.info("document_uploaded", document_id=str(document.id), filename=file.filename)
         return DocumentOut.model_validate(document)
 
@@ -80,6 +81,7 @@ class DocumentService:
             )
 
         await self.repo.update_status(document_id, DocumentStatus.PROCESSING)
+        await self.db.commit()
 
         from app.workers.tasks import index_document_task
 

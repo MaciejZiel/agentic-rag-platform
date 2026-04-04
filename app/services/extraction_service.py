@@ -55,6 +55,7 @@ class ExtractionService:
             cost_usd=cost,
         )
         await self.query_repo.create_extraction(record)
+        await self.db.commit()
 
         logger.info("extraction_completed", document_id=str(request.document_id), tokens=total_tokens)
         return ExtractionResponse(

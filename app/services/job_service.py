@@ -28,8 +28,9 @@ class JobService:
             payload=json.dumps(request.payload),
         )
         job = await self.repo.create(job)
+        await self.db.commit()
 
-        # Dispatch to Celery
+        # Dispatch to Celery after commit so the worker can read the job
         from app.workers.tasks import run_job_task
 
         run_job_task.delay(str(job.id))

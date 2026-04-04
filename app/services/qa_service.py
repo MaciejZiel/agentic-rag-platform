@@ -105,6 +105,7 @@ class QAService:
             cost_usd=cost,
         )
         await self.query_repo.create_chat_query(chat_query)
+        await self.db.commit()
 
         logger.info("qa_completed", tokens=total_tokens, sources=len(sources))
         return AskResponse(
