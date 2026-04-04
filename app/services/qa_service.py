@@ -36,6 +36,16 @@ class QAService:
             document_ids=request.document_ids,
         )
 
+        if not results:
+            logger.info("qa_no_sources", question=request.question[:100])
+            return AskResponse(
+                answer="No relevant sources found for this question.",
+                sources=[],
+                model=settings.chat_model,
+                token_usage=0,
+                cost_usd=0.0,
+            )
+
         # Fetch chunk contents from DB
         chunk_ids = [uuid.UUID(r["payload"]["chunk_id"]) for r in results]
         chunks = await self.doc_repo.get_chunks_by_ids(chunk_ids)
@@ -113,6 +123,12 @@ class QAService:
             top_k=request.top_k,
             document_ids=request.document_ids,
         )
+
+        if not results:
+            yield f"data: {json.dumps({'type': 'sources', 'sources': []})}\n\n"
+            yield f"data: {json.dumps({'type': 'token', 'content': 'No relevant sources found for this question.'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
 
         chunk_ids = [uuid.UUID(r["payload"]["chunk_id"]) for r in results]
         chunks = await self.doc_repo.get_chunks_by_ids(chunk_ids)
