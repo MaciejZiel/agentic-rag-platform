@@ -29,15 +29,29 @@ class DocumentRepository:
         )
         return result.scalar_one_or_none()
 
-    async def list_all(self, skip: int = 0, limit: int = 20) -> list[Document]:
+    async def list_all(
+        self, skip: int = 0, limit: int = 20, tenant_id: uuid.UUID | None = None,
+    ) -> list[Document]:
+        query = select(Document)
+        if tenant_id is not None:
+            query = query.where(Document.tenant_id == tenant_id)
         result = await self.db.execute(
-            select(Document).order_by(Document.created_at.desc()).offset(skip).limit(limit)
+            query.order_by(Document.created_at.desc()).offset(skip).limit(limit)
         )
         return list(result.scalars().all())
 
-    async def count(self) -> int:
-        result = await self.db.execute(select(func.count(Document.id)))
+    async def count(self, tenant_id: uuid.UUID | None = None) -> int:
+        query = select(func.count(Document.id))
+        if tenant_id is not None:
+            query = query.where(Document.tenant_id == tenant_id)
+        result = await self.db.execute(query)
         return result.scalar_one()
+
+    async def delete_document(self, document_id: uuid.UUID) -> None:
+        doc = await self.get_by_id(document_id)
+        if doc:
+            await self.db.delete(doc)
+            await self.db.flush()
 
     async def update_status(
         self, document_id: uuid.UUID, status: str, error_message: str | None = None
