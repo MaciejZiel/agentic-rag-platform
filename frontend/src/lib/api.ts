@@ -71,6 +71,11 @@ export async function indexDocument(id: string): Promise<Document> {
   return res.json();
 }
 
+export async function deleteDocument(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/documents/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
+}
+
 export async function askQuestion(
   question: string,
   documentIds?: string[],

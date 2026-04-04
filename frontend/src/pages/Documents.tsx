@@ -7,6 +7,7 @@ import {
   XCircle,
   Loader2,
   Clock,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import {
   listDocuments,
   uploadDocument,
   indexDocument,
+  deleteDocument,
 } from "@/lib/api";
 
 const statusConfig = {
@@ -65,6 +67,15 @@ export function DocumentsPage() {
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await deleteDocument(id);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed");
     }
   }
 
@@ -196,6 +207,15 @@ export function DocumentsPage() {
                     )}
                   </Button>
                 )}
+
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => handleDelete(doc.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
 
                 <code className="text-[10px] text-muted-foreground hidden lg:block">
                   {doc.id.slice(0, 8)}
