@@ -161,3 +161,63 @@ export async function extractJson(
   if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
   return res.json();
 }
+
+// --- Stats ---
+
+export interface PlatformStats {
+  total_documents: number;
+  indexed_documents: number;
+  total_chunks: number;
+  total_queries: number;
+  total_extractions: number;
+  total_conversations: number;
+  total_tokens_used: number;
+  total_cost_usd: number;
+  recent_queries: Array<{
+    id: string;
+    question: string;
+    model: string;
+    token_usage: number;
+    cost_usd: number;
+    created_at: string;
+  }>;
+}
+
+export async function getStats(): Promise<PlatformStats> {
+  const res = await fetch(`${BASE}/stats`);
+  return res.json();
+}
+
+// --- Tenants / Auth ---
+
+export interface TenantResponse {
+  id: string;
+  name: string;
+  api_key: string;
+}
+
+export async function createTenant(name: string): Promise<TenantResponse> {
+  const res = await fetch(`${BASE}/tenants`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
+  return res.json();
+}
+
+// --- Query history ---
+
+export async function getQueryHistory(): Promise<Array<{
+  id: string;
+  question: string;
+  answer: string | null;
+  model: string;
+  token_usage: number;
+  cost_usd: number;
+  created_at: string;
+}>> {
+  const res = await fetch(`${BASE}/qa/history`);
+  if (!res.ok) return [];
+  return res.json();
+}

@@ -7,10 +7,35 @@ from app.clients.qdrant_client import VectorStoreClient
 from app.core.database import get_db
 from app.core.dependencies import get_llm_client, get_vector_store
 from app.core.rate_limit import limiter
+from app.models.query import ChatQuery
 from app.schemas.qa import AskRequest, AskResponse
 from app.services.qa_service import QAService
 
 router = APIRouter()
+
+
+@router.get("/history")
+async def get_query_history(
+    skip: int = 0,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    from sqlalchemy import select
+    result = await db.execute(
+        select(ChatQuery).order_by(ChatQuery.created_at.desc()).offset(skip).limit(limit)
+    )
+    return [
+        {
+            "id": str(q.id),
+            "question": q.question,
+            "answer": q.answer,
+            "model": q.model,
+            "token_usage": q.token_usage,
+            "cost_usd": q.cost_usd,
+            "created_at": q.created_at.isoformat(),
+        }
+        for q in result.scalars().all()
+    ]
 
 
 @router.post("/ask", response_model=AskResponse)

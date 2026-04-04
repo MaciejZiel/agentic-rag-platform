@@ -65,6 +65,26 @@ async def get_document(
     return await service.get_document(document_id)
 
 
+@router.get("/{document_id}/chunks")
+async def get_document_chunks(
+    document_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    from app.repositories.document_repository import DocumentRepository
+    repo = DocumentRepository(db)
+    chunks = await repo.get_chunks_by_document(document_id)
+    return [
+        {
+            "id": str(c.id),
+            "chunk_index": c.chunk_index,
+            "content": c.content,
+            "token_count": c.token_count,
+            "created_at": c.created_at.isoformat(),
+        }
+        for c in chunks
+    ]
+
+
 @router.delete("/{document_id}", status_code=204)
 async def delete_document(
     document_id: uuid.UUID,
