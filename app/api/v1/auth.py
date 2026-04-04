@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import generate_api_key
+from app.services.email_service import send_verification_email
 from app.core.database import get_db
 from app.core.security import (
     create_access_token,
@@ -105,9 +106,7 @@ async def register(
     db.add(user)
     await db.commit()
 
-    # In production: send email with verification_code via SMTP / SendGrid / etc.
-    import structlog
-    structlog.get_logger().info("email_verification_code", email=request.email, code=verification_code)
+    await send_verification_email(request.email, verification_code, request.full_name)
 
     return MessageResponse(message="Account created. Please verify your email.")
 
@@ -160,8 +159,7 @@ async def login(
         user.email_verification_code = verification_code
         await db.commit()
 
-        import structlog
-        structlog.get_logger().info("email_verification_code", email=request.email, code=verification_code)
+        await send_verification_email(request.email, verification_code, user.full_name)
 
         raise HTTPException(
             status_code=403,
@@ -236,7 +234,6 @@ async def resend_verification_code(
     user.email_verification_code = verification_code
     await db.commit()
 
-    import structlog
-    structlog.get_logger().info("email_verification_code", email=user.email, code=verification_code)
+    await send_verification_email(user.email, verification_code, user.full_name)
 
     return MessageResponse(message="If an account exists, a new code has been sent.")

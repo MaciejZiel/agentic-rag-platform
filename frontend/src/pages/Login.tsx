@@ -702,8 +702,7 @@ export function LoginPage({ onLogin }: Props) {
 
                   <div className="rounded-lg bg-muted/50 border px-3 py-2">
                     <p className="text-[10px] text-muted-foreground text-center">
-                      <strong>Dev mode:</strong> Check the backend server logs
-                      for the verification code.
+                      Check your inbox and spam folder. The code expires in 15 minutes.
                     </p>
                   </div>
                 </>
