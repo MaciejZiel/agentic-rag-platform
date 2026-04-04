@@ -24,6 +24,8 @@ class ExtractionService:
         self.query_repo = QueryRepository(db)
 
     async def extract(self, request: ExtractionRequest) -> ExtractionResponse:
+        model = request.model or settings.chat_model
+
         doc = await self.doc_repo.get_by_id(request.document_id)
         if not doc:
             raise NotFoundError("Document", request.document_id)
@@ -40,17 +42,18 @@ class ExtractionService:
             text=text,
             schema=request.schema_definition,
             instructions=request.instructions,
+            model=model,
         )
 
         total_tokens = prompt_tokens + completion_tokens
-        cost = estimate_cost(settings.chat_model, prompt_tokens, completion_tokens)
+        cost = estimate_cost(model, prompt_tokens, completion_tokens)
 
         # Persist
         record = ExtractionRecord(
             document_id=request.document_id,
             schema_json=json.dumps(request.schema_definition),
             result_json=json.dumps(data),
-            model=settings.chat_model,
+            model=model,
             token_usage=total_tokens,
             cost_usd=cost,
         )
@@ -61,7 +64,7 @@ class ExtractionService:
         return ExtractionResponse(
             document_id=request.document_id,
             extracted_data=data,
-            model=settings.chat_model,
+            model=model,
             token_usage=total_tokens,
             cost_usd=cost,
         )

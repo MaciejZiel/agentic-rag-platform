@@ -27,6 +27,8 @@ class QAService:
         self.query_repo = QueryRepository(db)
 
     async def ask(self, request: AskRequest) -> AskResponse:
+        model = request.model or settings.chat_model
+
         # Embed the question
         query_embeddings = await self.llm.create_embeddings([request.question])
         query_vector = query_embeddings[0]
@@ -43,7 +45,7 @@ class QAService:
             return AskResponse(
                 answer="No relevant sources found for this question.",
                 sources=[],
-                model=settings.chat_model,
+                model=model,
                 token_usage=0,
                 cost_usd=0.0,
             )
@@ -88,9 +90,11 @@ class QAService:
             },
         ]
 
-        answer, prompt_tokens, completion_tokens = await self.llm.chat_completion(messages)
+        answer, prompt_tokens, completion_tokens = await self.llm.chat_completion(
+            messages, model=model,
+        )
         total_tokens = prompt_tokens + completion_tokens
-        cost = estimate_cost(settings.chat_model, prompt_tokens, completion_tokens)
+        cost = estimate_cost(model, prompt_tokens, completion_tokens)
 
         # Persist the query
         doc_ids_json = json.dumps([str(s.document_id) for s in sources])
@@ -100,7 +104,7 @@ class QAService:
             answer=answer,
             document_ids=doc_ids_json,
             source_chunks=source_json,
-            model=settings.chat_model,
+            model=model,
             token_usage=total_tokens,
             cost_usd=cost,
         )
@@ -111,12 +115,14 @@ class QAService:
         return AskResponse(
             answer=answer,
             sources=sources,
-            model=settings.chat_model,
+            model=model,
             token_usage=total_tokens,
             cost_usd=cost,
         )
 
     async def ask_stream(self, request: AskRequest) -> AsyncGenerator[str, None]:
+        model = request.model or settings.chat_model
+
         # Embed and search
         query_embeddings = await self.llm.create_embeddings([request.question])
         query_vector = query_embeddings[0]
@@ -170,7 +176,7 @@ class QAService:
         yield f"data: {json.dumps({'type': 'sources', 'sources': sources})}\n\n"
 
         # Stream the answer
-        async for token in self.llm.chat_completion_stream(messages):
+        async for token in self.llm.chat_completion_stream(messages, model=model):
             yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
 
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
