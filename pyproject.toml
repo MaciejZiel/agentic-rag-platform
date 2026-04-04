@@ -30,6 +30,7 @@ dependencies = [
     "passlib[bcrypt]>=1.7,<2",
     "bcrypt>=4.2,<5",
     "aiosmtplib>=3.0,<4",
+    "resend>=2.0,<3",
 ]
 
 [project.optional-dependencies]

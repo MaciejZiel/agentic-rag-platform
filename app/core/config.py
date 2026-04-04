@@ -51,12 +51,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
 
-    # SMTP (Gmail: smtp.gmail.com, port 587, use App Password)
-    smtp_host: str = ""
-    smtp_port: int = 587
-    smtp_user: str = ""
-    smtp_password: str = ""
-    smtp_from_name: str = "Agentic RAG"
+    # Email (Resend)
+    resend_api_key: str = ""
+    email_from: str = "Agentic RAG <onboarding@resend.dev>"
 
     # Celery
     celery_broker_url: str = "redis://localhost:6379/0"
