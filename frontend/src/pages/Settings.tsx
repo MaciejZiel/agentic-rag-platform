@@ -27,16 +27,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { type ModelInfo, listModels } from "@/lib/api";
+import { type ModelInfo, type AuthUser, listModels } from "@/lib/api";
 import { TwoFactorSetup } from "@/components/TwoFactorSetup";
-import type { Session } from "@/App";
 
 interface Props {
-  session: Session;
-  onSessionUpdate: (updates: Partial<Session>) => void;
+  user: AuthUser;
+  onUserUpdate: (user: AuthUser) => void;
 }
 
-export function SettingsPage({ session, onSessionUpdate }: Props) {
+export function SettingsPage({ user, onUserUpdate }: Props) {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [defaultModel, setDefaultModel] = useState("");
   const [chunkStrategy, setChunkStrategy] = useState("fixed_size");
@@ -44,18 +43,16 @@ export function SettingsPage({ session, onSessionUpdate }: Props) {
   const [overlapTokens, setOverlapTokens] = useState("50");
 
   // Profile editing
-  const [displayName, setDisplayName] = useState(session.tenantName);
-  const [profileEmail, setProfileEmail] = useState(session.email ?? "");
+  const [displayName, setDisplayName] = useState(user.full_name);
+  const [profileEmail, setProfileEmail] = useState(user.email);
   const [profileSaved, setProfileSaved] = useState(false);
 
   // 2FA
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(() => {
-    return localStorage.getItem("2fa_enabled") === "true";
-  });
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(user.is_2fa_enabled);
 
   // API key management
-  const [apiKeys, setApiKeys] = useState<Array<{ id: string; prefix: string; label: string; created: string }>>([
-    { id: "1", prefix: session.apiKey?.slice(0, 12) || "rag_abc12345", label: "Default Key", created: "2026-04-01" },
+  const [apiKeys] = useState<Array<{ id: string; prefix: string; label: string; created: string }>>([
+    { id: "1", prefix: "rag_••••••••", label: "Default Key", created: user.created_at.split("T")[0] },
   ]);
   const [showKey, setShowKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -84,18 +81,14 @@ export function SettingsPage({ session, onSessionUpdate }: Props) {
   }
 
   function handleSaveProfile() {
-    onSessionUpdate({
-      tenantName: displayName,
-      email: profileEmail || undefined,
-    });
+    onUserUpdate({ ...user, full_name: displayName, email: profileEmail });
     setProfileSaved(true);
     setTimeout(() => setProfileSaved(false), 2000);
   }
 
   function handleToggle2FA(enabled: boolean) {
     setTwoFactorEnabled(enabled);
-    localStorage.setItem("2fa_enabled", String(enabled));
-    onSessionUpdate({ twoFactorEnabled: enabled });
+    onUserUpdate({ ...user, is_2fa_enabled: enabled });
   }
 
   async function handleAddWebhook() {
@@ -140,17 +133,17 @@ export function SettingsPage({ session, onSessionUpdate }: Props) {
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
             <div className="rounded-full bg-primary/10 p-4">
-              {session.accountType === "organization" ? (
+              {user.account_type === "organization" ? (
                 <Building2 className="h-6 w-6 text-primary" />
               ) : (
                 <User className="h-6 w-6 text-primary" />
               )}
             </div>
             <div className="flex-1 space-y-1">
-              <p className="text-sm font-medium">{session.tenantName}</p>
+              <p className="text-sm font-medium">{user.full_name}</p>
               <p className="text-xs text-muted-foreground">
-                {session.email || "No email set"} ·{" "}
-                {session.accountType === "organization"
+                {user.email} ·{" "}
+                {user.account_type === "organization"
                   ? "Organization"
                   : "Personal"}{" "}
                 account

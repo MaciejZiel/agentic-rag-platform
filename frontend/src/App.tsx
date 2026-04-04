@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
 import {
   FileText,
@@ -10,6 +10,7 @@ import {
   Settings,
   LogOut,
   User,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DashboardPage } from "@/pages/Dashboard";
@@ -22,16 +23,14 @@ import { SubscriptionsPage } from "@/pages/Subscriptions";
 import { LoginPage } from "@/pages/Login";
 import { TwoFactorVerify } from "@/pages/TwoFactorVerify";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  type AuthUser,
+  authGetMe,
+  clearTokens,
+  getAccessToken,
+} from "@/lib/api";
 
-export interface Session {
-  apiKey: string;
-  tenantName: string;
-  email?: string;
-  twoFactorEnabled?: boolean;
-  twoFactorVerified?: boolean;
-  accountType?: "personal" | "organization";
-  avatarUrl?: string;
-}
+export type { AuthUser };
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -44,55 +43,85 @@ const navItems = [
 ];
 
 export default function App() {
-  const [session, setSession] = useState<Session | null>(() => {
-    const saved = localStorage.getItem("session");
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [needs2FA, setNeeds2FA] = useState(false);
 
-  function handleLogin(apiKey: string, tenantName: string, email?: string) {
-    const twoFAState = localStorage.getItem("2fa_enabled");
-    const twoFactorEnabled = twoFAState === "true";
+  // On mount: check if we have a valid token
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    authGetMe()
+      .then((u) => {
+        if (u.is_2fa_enabled) {
+          const verified = sessionStorage.getItem("2fa_verified") === "true";
+          if (!verified) {
+            setNeeds2FA(true);
+            setUser(u);
+            setLoading(false);
+            return;
+          }
+        }
+        setUser(u);
+        setLoading(false);
+      })
+      .catch(() => {
+        clearTokens();
+        setLoading(false);
+      });
+  }, []);
 
-    const s: Session = {
-      apiKey,
-      tenantName,
-      email,
-      twoFactorEnabled,
-      twoFactorVerified: !twoFactorEnabled, // skip verify if 2FA not enabled
-    };
-    setSession(s);
-    localStorage.setItem("session", JSON.stringify(s));
+  function handleLoginSuccess() {
+    setLoading(true);
+    authGetMe()
+      .then((u) => {
+        if (u.is_2fa_enabled) {
+          setNeeds2FA(true);
+          setUser(u);
+        } else {
+          setUser(u);
+        }
+      })
+      .catch(() => {
+        clearTokens();
+      })
+      .finally(() => setLoading(false));
   }
 
   function handle2FAVerified() {
-    if (!session) return;
-    const s: Session = { ...session, twoFactorVerified: true };
-    setSession(s);
-    localStorage.setItem("session", JSON.stringify(s));
+    setNeeds2FA(false);
+    sessionStorage.setItem("2fa_verified", "true");
   }
 
   function handleLogout() {
-    setSession(null);
-    localStorage.removeItem("session");
+    setUser(null);
+    setNeeds2FA(false);
+    clearTokens();
+    sessionStorage.removeItem("2fa_verified");
   }
 
-  function handleSessionUpdate(updates: Partial<Session>) {
-    if (!session) return;
-    const s = { ...session, ...updates };
-    setSession(s);
-    localStorage.setItem("session", JSON.stringify(s));
+  // Loading spinner
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   // Not logged in
-  if (!session) {
-    return <LoginPage onLogin={handleLogin} />;
+  if (!user) {
+    return <LoginPage onLogin={handleLoginSuccess} />;
   }
 
-  // Logged in but 2FA not yet verified
-  if (session.twoFactorEnabled && !session.twoFactorVerified) {
+  // Logged in but 2FA not verified
+  if (needs2FA) {
     return (
       <TwoFactorVerify
-        email={session.email}
+        email={user.email}
         onVerified={handle2FAVerified}
         onCancel={handleLogout}
       />
@@ -138,9 +167,9 @@ export default function App() {
                 <User className="h-3 w-3 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate">{session.tenantName}</p>
+                <p className="text-xs font-medium truncate">{user.full_name}</p>
                 <p className="text-[10px] text-muted-foreground truncate">
-                  {session.email || (session.apiKey ? "Authenticated" : "Guest")}
+                  {user.email}
                 </p>
               </div>
               <Button
@@ -171,12 +200,7 @@ export default function App() {
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
             <Route
               path="/settings"
-              element={
-                <SettingsPage
-                  session={session}
-                  onSessionUpdate={handleSessionUpdate}
-                />
-              }
+              element={<SettingsPage user={user} onUserUpdate={setUser} />}
             />
           </Routes>
         </main>
