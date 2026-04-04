@@ -51,14 +51,14 @@ class QAService:
         chunks = await self.doc_repo.get_chunks_by_ids(chunk_ids)
         chunk_map = {str(c.id): c for c in chunks}
 
-        # Build context and sources
+        # Build context with sequential numbering to reduce citation hallucination
         context_parts: list[str] = []
         sources: list[SourceCitation] = []
-        for r in results:
+        for idx, r in enumerate(results, start=1):
             chunk = chunk_map.get(r["payload"]["chunk_id"])
             if not chunk:
                 continue
-            context_parts.append(f"[Source {chunk.chunk_index}]: {chunk.content}")
+            context_parts.append(f"[Source {idx}]: {chunk.content}")
             sources.append(
                 SourceCitation(
                     document_id=chunk.document_id,
@@ -136,11 +136,11 @@ class QAService:
 
         context_parts: list[str] = []
         sources: list[dict] = []
-        for r in results:
+        for idx, r in enumerate(results, start=1):
             chunk = chunk_map.get(r["payload"]["chunk_id"])
             if not chunk:
                 continue
-            context_parts.append(f"[Source {chunk.chunk_index}]: {chunk.content}")
+            context_parts.append(f"[Source {idx}]: {chunk.content}")
             sources.append({
                 "document_id": str(chunk.document_id),
                 "chunk_index": chunk.chunk_index,
