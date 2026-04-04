@@ -1,15 +1,17 @@
 import asyncio
 from collections.abc import AsyncGenerator, Generator
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.clients.openai_client import LLMClient
+from app.clients.qdrant_client import VectorStoreClient
 from app.core.database import Base, get_db
+from app.core.dependencies import get_llm_client, get_vector_store
 from app.main import create_app
 
-# Use SQLite for tests — no external DB needed
 TEST_DB_URL = "sqlite+aiosqlite:///./test.db"
 
 
@@ -40,37 +42,44 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest.fixture
-async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+def mock_llm() -> LLMClient:
+    mock = MagicMock(spec=LLMClient)
+    mock.create_embeddings = AsyncMock(return_value=[[0.1] * 1536])
+    mock.chat_completion = AsyncMock(return_value=("Test answer from [Source 1].", 100, 50))
+    mock.chat_completion_stream = AsyncMock(return_value=_async_iter(["Test ", "answer"]))
+    mock.structured_extraction = AsyncMock(return_value=({"key": "value"}, 100, 50))
+    return mock
+
+
+@pytest.fixture
+def mock_vector_store() -> VectorStoreClient:
+    mock = MagicMock(spec=VectorStoreClient)
+    mock.upsert_vectors = MagicMock()
+    mock.search = MagicMock(return_value=[])
+    mock.delete_by_document_id = MagicMock()
+    return mock
+
+
+@pytest.fixture
+async def client(
+    db_session: AsyncSession, mock_llm: LLMClient, mock_vector_store: VectorStoreClient
+) -> AsyncGenerator[AsyncClient, None]:
     app = create_app()
 
     async def override_get_db():
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_llm_client] = lambda: mock_llm
+    app.dependency_overrides[get_vector_store] = lambda: mock_vector_store
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
 
-
-@pytest.fixture
-def mock_llm_client():
-    with patch("app.clients.openai_client.LLMClient") as mock:
-        instance = mock.return_value
-        instance.create_embeddings = AsyncMock(return_value=[[0.1] * 1536])
-        instance.chat_completion = AsyncMock(return_value=("Test answer", 100, 50))
-        instance.chat_completion_stream = MagicMock()
-        instance.structured_extraction = AsyncMock(
-            return_value=({"key": "value"}, 100, 50)
-        )
-        yield instance
+    app.dependency_overrides.clear()
 
 
-@pytest.fixture
-def mock_vector_store():
-    with patch("app.clients.qdrant_client.VectorStoreClient") as mock:
-        instance = mock.return_value
-        instance.upsert_vectors = MagicMock()
-        instance.search = MagicMock(return_value=[])
-        instance.delete_by_document_id = MagicMock()
-        yield instance
+async def _async_iter(items):
+    for item in items:
+        yield item
