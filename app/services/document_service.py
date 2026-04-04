@@ -1,0 +1,90 @@
+import uuid
+from pathlib import Path
+
+from fastapi import UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import settings
+from app.core.exceptions import (
+    FileTooLargeError,
+    NotFoundError,
+    UnsupportedFileTypeError,
+    ValidationError,
+)
+from app.core.logging import get_logger
+from app.models.document import Document, DocumentStatus
+from app.repositories.document_repository import DocumentRepository
+from app.schemas.document import DocumentListOut, DocumentOut
+from app.utils.text_extraction import SUPPORTED_EXTENSIONS
+
+logger = get_logger(__name__)
+
+
+class DocumentService:
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+        self.repo = DocumentRepository(db)
+
+    async def upload(self, file: UploadFile) -> DocumentOut:
+        if not file.filename:
+            raise ValidationError("Filename is required")
+
+        ext = Path(file.filename).suffix.lower()
+        if ext not in SUPPORTED_EXTENSIONS:
+            raise UnsupportedFileTypeError(ext)
+
+        content = await file.read()
+        file_size = len(content)
+        max_bytes = settings.max_upload_size_mb * 1024 * 1024
+        if file_size > max_bytes:
+            raise FileTooLargeError(settings.max_upload_size_mb)
+
+        file_id = uuid.uuid4()
+        file_path = settings.upload_dir / f"{file_id}{ext}"
+        file_path.write_bytes(content)
+
+        document = Document(
+            id=file_id,
+            filename=file.filename,
+            content_type=file.content_type or "application/octet-stream",
+            file_size=file_size,
+            file_path=str(file_path),
+            status=DocumentStatus.UPLOADED,
+        )
+        document = await self.repo.create(document)
+        logger.info("document_uploaded", document_id=str(document.id), filename=file.filename)
+        return DocumentOut.model_validate(document)
+
+    async def get_document(self, document_id: uuid.UUID) -> DocumentOut:
+        doc = await self.repo.get_by_id(document_id)
+        if not doc:
+            raise NotFoundError("Document", document_id)
+        return DocumentOut.model_validate(doc)
+
+    async def list_documents(self, skip: int = 0, limit: int = 20) -> DocumentListOut:
+        docs = await self.repo.list_all(skip=skip, limit=limit)
+        total = await self.repo.count()
+        return DocumentListOut(
+            documents=[DocumentOut.model_validate(d) for d in docs],
+            total=total,
+        )
+
+    async def start_indexing(self, document_id: uuid.UUID) -> DocumentOut:
+        doc = await self.repo.get_by_id(document_id)
+        if not doc:
+            raise NotFoundError("Document", document_id)
+
+        if doc.status not in (DocumentStatus.UPLOADED, DocumentStatus.FAILED):
+            raise ValidationError(
+                f"Document is in '{doc.status}' state and cannot be re-indexed"
+            )
+
+        await self.repo.update_status(document_id, DocumentStatus.PROCESSING)
+
+        from app.workers.tasks import index_document_task
+
+        index_document_task.delay(str(document_id))
+
+        logger.info("indexing_started", document_id=str(document_id))
+        doc = await self.repo.get_by_id(document_id)
+        return DocumentOut.model_validate(doc)
