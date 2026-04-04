@@ -25,6 +25,10 @@ dependencies = [
     "psycopg2-binary>=2.9,<3",
     "slowapi>=0.1.9,<1",
     "prometheus-fastapi-instrumentator>=7,<8",
+    "pydantic[email]>=2.10,<3",
+    "pyjwt[crypto]>=2.9,<3",
+    "passlib[bcrypt]>=1.7,<2",
+    "bcrypt>=4.2,<5",
 ]
 
 [project.optional-dependencies]
