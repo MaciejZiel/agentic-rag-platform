@@ -12,6 +12,8 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.exceptions import AppError
 from app.core.logging import setup_logging, get_logger
+from prometheus_fastapi_instrumentator import Instrumentator
+
 from app.core.rate_limit import limiter
 
 
@@ -46,6 +48,12 @@ def create_app() -> FastAPI:
     app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
     app.include_router(api_router, prefix=settings.api_prefix)
+
+    Instrumentator(
+        should_group_status_codes=True,
+        should_ignore_untemplated=True,
+        excluded_handlers=["/metrics", "/docs", "/redoc", "/openapi.json"],
+    ).instrument(app).expose(app, endpoint="/metrics")
 
     return app
 
