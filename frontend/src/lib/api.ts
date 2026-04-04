@@ -1,5 +1,144 @@
 const BASE = "/api/v1";
 
+// ─── Auth token management ──────────────────────────────────────
+
+let accessToken: string | null = localStorage.getItem("access_token");
+let refreshToken: string | null = localStorage.getItem("refresh_token");
+
+export function setTokens(access: string, refresh: string) {
+  accessToken = access;
+  refreshToken = refresh;
+  localStorage.setItem("access_token", access);
+  localStorage.setItem("refresh_token", refresh);
+}
+
+export function clearTokens() {
+  accessToken = null;
+  refreshToken = null;
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+}
+
+export function getAccessToken() {
+  return accessToken;
+}
+
+function authHeaders(): Record<string, string> {
+  if (accessToken) {
+    return { Authorization: `Bearer ${accessToken}` };
+  }
+  return {};
+}
+
+async function refreshAccessToken(): Promise<boolean> {
+  if (!refreshToken) return false;
+  try {
+    const res = await fetch(`${BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    setTokens(data.access_token, data.refresh_token);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Fetch with automatic token refresh on 401. */
+async function authFetch(url: string, init?: RequestInit): Promise<Response> {
+  const headers = { ...authHeaders(), ...init?.headers };
+  let res = await fetch(url, { ...init, headers });
+
+  if (res.status === 401 && refreshToken) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      const retryHeaders = { ...authHeaders(), ...init?.headers };
+      res = await fetch(url, { ...init, headers: retryHeaders });
+    }
+  }
+  return res;
+}
+
+// ─── Auth API ───────────────────────────────────────────────────
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  full_name: string;
+  account_type: string;
+  is_email_verified: boolean;
+  is_2fa_enabled: boolean;
+  tenant_id: string;
+  created_at: string;
+}
+
+export async function authRegister(
+  email: string,
+  password: string,
+  fullName: string,
+  accountType: string,
+): Promise<{ message: string }> {
+  const res = await fetch(`${BASE}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, full_name: fullName, account_type: accountType }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail ?? "Registration failed");
+  }
+  return res.json();
+}
+
+export async function authVerifyEmail(
+  email: string,
+  code: string,
+): Promise<{ access_token: string; refresh_token: string }> {
+  const res = await fetch(`${BASE}/auth/verify-email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail ?? "Verification failed");
+  }
+  return res.json();
+}
+
+export async function authLogin(
+  email: string,
+  password: string,
+): Promise<{ access_token: string; refresh_token: string }> {
+  const res = await fetch(`${BASE}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail ?? "Login failed");
+  }
+  return res.json();
+}
+
+export async function authGetMe(): Promise<AuthUser> {
+  const res = await authFetch(`${BASE}/auth/me`);
+  if (!res.ok) throw new Error("Not authenticated");
+  return res.json();
+}
+
+export async function authResendCode(email: string): Promise<void> {
+  await fetch(`${BASE}/auth/resend-code`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code: "" }),
+  });
+}
+
 export interface Document {
   id: string;
   filename: string;
@@ -50,30 +189,30 @@ export interface SSEEvent {
 export async function uploadDocument(file: File): Promise<Document> {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(`${BASE}/documents/upload`, { method: "POST", body: form });
+  const res = await authFetch(`${BASE}/documents/upload`, { method: "POST", body: form });
   if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
   return res.json();
 }
 
 export async function listDocuments(): Promise<DocumentList> {
-  const res = await fetch(`${BASE}/documents`);
+  const res = await authFetch(`${BASE}/documents`);
   return res.json();
 }
 
 export async function getDocument(id: string): Promise<Document> {
-  const res = await fetch(`${BASE}/documents/${id}`);
+  const res = await authFetch(`${BASE}/documents/${id}`);
   if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
   return res.json();
 }
 
 export async function indexDocument(id: string): Promise<Document> {
-  const res = await fetch(`${BASE}/documents/${id}/index`, { method: "POST" });
+  const res = await authFetch(`${BASE}/documents/${id}/index`, { method: "POST" });
   if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
   return res.json();
 }
 
 export async function deleteDocument(id: string): Promise<void> {
-  const res = await fetch(`${BASE}/documents/${id}`, { method: "DELETE" });
+  const res = await authFetch(`${BASE}/documents/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
 }
 
@@ -83,7 +222,7 @@ export async function askQuestion(
   topK = 5,
   model?: string,
 ): Promise<AskResponse> {
-  const res = await fetch(`${BASE}/qa/ask`, {
+  const res = await authFetch(`${BASE}/qa/ask`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question, document_ids: documentIds, top_k: topK, model }),
@@ -99,7 +238,7 @@ export async function* askStream(
   model?: string,
   conversationId?: string,
 ): AsyncGenerator<SSEEvent> {
-  const res = await fetch(`${BASE}/qa/ask/stream`, {
+  const res = await authFetch(`${BASE}/qa/ask/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -138,7 +277,7 @@ export interface ModelsResponse {
 }
 
 export async function listModels(): Promise<ModelsResponse> {
-  const res = await fetch(`${BASE}/models`);
+  const res = await authFetch(`${BASE}/models`);
   return res.json();
 }
 
@@ -148,7 +287,7 @@ export async function extractJson(
   instructions?: string,
   model?: string,
 ): Promise<ExtractionResponse> {
-  const res = await fetch(`${BASE}/extract/json`, {
+  const res = await authFetch(`${BASE}/extract/json`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -184,7 +323,7 @@ export interface PlatformStats {
 }
 
 export async function getStats(): Promise<PlatformStats> {
-  const res = await fetch(`${BASE}/stats`);
+  const res = await authFetch(`${BASE}/stats`);
   return res.json();
 }
 
@@ -217,7 +356,7 @@ export async function getQueryHistory(): Promise<Array<{
   cost_usd: number;
   created_at: string;
 }>> {
-  const res = await fetch(`${BASE}/qa/history`);
+  const res = await authFetch(`${BASE}/qa/history`);
   if (!res.ok) return [];
   return res.json();
 }
