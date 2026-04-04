@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.openai_client import LLMClient, estimate_cost
 from app.clients.qdrant_client import VectorStoreClient
+from app.core.cache import get_cached_answer, set_cached_answer
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.models.conversation import Conversation, ConversationMessage
@@ -49,6 +50,13 @@ class QAService:
 
     async def ask(self, request: AskRequest) -> AskResponse:
         model = request.model or settings.chat_model
+        doc_ids_str = [str(d) for d in request.document_ids] if request.document_ids else None
+
+        # Check cache (only for new conversations without history)
+        if not request.conversation_id:
+            cached = await get_cached_answer(request.question, doc_ids_str, model)
+            if cached:
+                return AskResponse(**cached)
 
         # Conversation handling
         conv = await self._get_or_create_conversation(request.conversation_id)
@@ -149,7 +157,7 @@ class QAService:
         await self.db.commit()
 
         logger.info("qa_completed", tokens=total_tokens, sources=len(sources))
-        return AskResponse(
+        response = AskResponse(
             answer=answer,
             sources=sources,
             model=model,
@@ -157,6 +165,13 @@ class QAService:
             cost_usd=cost,
             conversation_id=conv.id,
         )
+
+        # Cache the result
+        await set_cached_answer(
+            request.question, doc_ids_str, model, response.model_dump(mode="json"),
+        )
+
+        return response
 
     async def ask_stream(self, request: AskRequest) -> AsyncGenerator[str, None]:
         model = request.model or settings.chat_model
