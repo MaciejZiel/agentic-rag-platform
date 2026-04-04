@@ -27,7 +27,7 @@ class DocumentService:
         self.db = db
         self.repo = DocumentRepository(db)
 
-    async def upload(self, file: UploadFile) -> DocumentOut:
+    async def upload(self, file: UploadFile, tenant_id: uuid.UUID | None = None) -> DocumentOut:
         if not file.filename:
             raise ValidationError("Filename is required")
 
@@ -58,6 +58,7 @@ class DocumentService:
 
         document = Document(
             id=file_id,
+            tenant_id=tenant_id,
             filename=file.filename,
             content_type=file.content_type or "application/octet-stream",
             file_size=file_size,
@@ -75,13 +76,34 @@ class DocumentService:
             raise NotFoundError("Document", document_id)
         return DocumentOut.model_validate(doc)
 
-    async def list_documents(self, skip: int = 0, limit: int = 20) -> DocumentListOut:
-        docs = await self.repo.list_all(skip=skip, limit=limit)
-        total = await self.repo.count()
+    async def list_documents(
+        self, skip: int = 0, limit: int = 20, tenant_id: uuid.UUID | None = None,
+    ) -> DocumentListOut:
+        docs = await self.repo.list_all(skip=skip, limit=limit, tenant_id=tenant_id)
+        total = await self.repo.count(tenant_id=tenant_id)
         return DocumentListOut(
             documents=[DocumentOut.model_validate(d) for d in docs],
             total=total,
         )
+
+    async def delete_document(
+        self, document_id: uuid.UUID, vector_store: "VectorStoreClient",
+    ) -> None:
+        doc = await self.repo.get_by_id(document_id)
+        if not doc:
+            raise NotFoundError("Document", document_id)
+
+        # Clean up vectors from Qdrant
+        vector_store.delete_by_document_id(document_id)
+
+        # Delete file from disk
+        file_path = Path(doc.file_path)
+        file_path.unlink(missing_ok=True)
+
+        # Delete document (cascades to chunks)
+        await self.repo.delete_document(document_id)
+        await self.db.commit()
+        logger.info("document_deleted", document_id=str(document_id))
 
     async def start_indexing(
         self,

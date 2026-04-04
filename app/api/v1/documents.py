@@ -5,8 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.openai_client import LLMClient
 from app.clients.qdrant_client import VectorStoreClient
+from app.core.auth import get_current_tenant, get_tenant_id
 from app.core.database import get_db
 from app.core.dependencies import get_llm_client, get_vector_store
+from app.models.tenant import Tenant
 from app.schemas.document import DocumentListOut, DocumentOut
 from app.services.document_service import DocumentService
 
@@ -17,9 +19,10 @@ router = APIRouter()
 async def upload_document(
     file: UploadFile,
     db: AsyncSession = Depends(get_db),
+    tenant: Tenant | None = Depends(get_current_tenant),
 ) -> DocumentOut:
     service = DocumentService(db)
-    return await service.upload(file)
+    return await service.upload(file, tenant_id=get_tenant_id(tenant))
 
 
 @router.post("/{document_id}/index", response_model=DocumentOut)
@@ -38,9 +41,12 @@ async def list_documents(
     skip: int = 0,
     limit: int = 20,
     db: AsyncSession = Depends(get_db),
+    tenant: Tenant | None = Depends(get_current_tenant),
 ) -> DocumentListOut:
     service = DocumentService(db)
-    return await service.list_documents(skip=skip, limit=limit)
+    return await service.list_documents(
+        skip=skip, limit=limit, tenant_id=get_tenant_id(tenant),
+    )
 
 
 @router.get("/{document_id}", response_model=DocumentOut)
@@ -50,3 +56,13 @@ async def get_document(
 ) -> DocumentOut:
     service = DocumentService(db)
     return await service.get_document(document_id)
+
+
+@router.delete("/{document_id}", status_code=204)
+async def delete_document(
+    document_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    vector_store: VectorStoreClient = Depends(get_vector_store),
+) -> None:
+    service = DocumentService(db)
+    await service.delete_document(document_id, vector_store)
