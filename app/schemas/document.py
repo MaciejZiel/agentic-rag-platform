@@ -23,6 +23,15 @@ class DocumentListOut(BaseModel):
     total: int
 
 
+class IndexRequest(BaseModel):
+    chunk_strategy: str = Field(
+        default="fixed_size",
+        description="Chunking strategy: fixed_size, sentence, or paragraph",
+    )
+    max_tokens: int = Field(default=512, ge=64, le=2048)
+    overlap_tokens: int = Field(default=50, ge=0, le=256)
+
+
 class DocumentChunkOut(BaseModel):
     id: uuid.UUID
     chunk_index: int

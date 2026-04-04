@@ -9,7 +9,7 @@ from app.core.auth import get_current_tenant, get_tenant_id
 from app.core.database import get_db
 from app.core.dependencies import get_llm_client, get_vector_store
 from app.models.tenant import Tenant
-from app.schemas.document import DocumentListOut, DocumentOut
+from app.schemas.document import DocumentListOut, DocumentOut, IndexRequest
 from app.services.document_service import DocumentService
 
 router = APIRouter()
@@ -28,12 +28,19 @@ async def upload_document(
 @router.post("/{document_id}/index", response_model=DocumentOut)
 async def index_document(
     document_id: uuid.UUID,
+    request: IndexRequest | None = None,
     db: AsyncSession = Depends(get_db),
     llm: LLMClient = Depends(get_llm_client),
     vector_store: VectorStoreClient = Depends(get_vector_store),
 ) -> DocumentOut:
+    req = request or IndexRequest()
     service = DocumentService(db)
-    return await service.start_indexing(document_id, llm, vector_store)
+    return await service.start_indexing(
+        document_id, llm, vector_store,
+        chunk_strategy=req.chunk_strategy,
+        max_tokens=req.max_tokens,
+        overlap_tokens=req.overlap_tokens,
+    )
 
 
 @router.get("", response_model=DocumentListOut)

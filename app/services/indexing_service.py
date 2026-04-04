@@ -8,7 +8,7 @@ from app.clients.qdrant_client import VectorStoreClient
 from app.core.logging import get_logger
 from app.models.document import DocumentChunk, DocumentStatus
 from app.repositories.document_repository import DocumentRepository
-from app.utils.chunking import chunk_text
+from app.utils.chunking import ChunkStrategy, chunk_text
 from app.utils.text_extraction import extract_text
 
 logger = get_logger(__name__)
@@ -25,7 +25,13 @@ class IndexingService:
         self.llm = llm
         self.vector_store = vector_store
 
-    async def index_document(self, document_id: uuid.UUID) -> None:
+    async def index_document(
+        self,
+        document_id: uuid.UUID,
+        strategy: ChunkStrategy = ChunkStrategy.FIXED_SIZE,
+        max_tokens: int = 512,
+        overlap_tokens: int = 50,
+    ) -> None:
         doc = await self.repo.get_by_id(document_id)
         if not doc:
             logger.error("document_not_found", document_id=str(document_id))
@@ -49,7 +55,9 @@ class IndexingService:
                 )
                 return
 
-            raw_chunks = chunk_text(text)
+            raw_chunks = chunk_text(
+                text, max_tokens=max_tokens, overlap_tokens=overlap_tokens, strategy=strategy,
+            )
 
             db_chunks = [
                 DocumentChunk(

@@ -110,8 +110,12 @@ class DocumentService:
         document_id: uuid.UUID,
         llm: "LLMClient",
         vector_store: "VectorStoreClient",
+        chunk_strategy: str = "fixed_size",
+        max_tokens: int = 512,
+        overlap_tokens: int = 50,
     ) -> DocumentOut:
         from app.services.indexing_service import IndexingService
+        from app.utils.chunking import ChunkStrategy
 
         doc = await self.repo.get_by_id(document_id)
         if not doc:
@@ -122,8 +126,12 @@ class DocumentService:
                 f"Document is in '{doc.status}' state and cannot be re-indexed"
             )
 
+        strategy = ChunkStrategy(chunk_strategy)
         indexing = IndexingService(self.db, llm, vector_store)
-        await indexing.index_document(document_id)
+        await indexing.index_document(
+            document_id, strategy=strategy, max_tokens=max_tokens,
+            overlap_tokens=overlap_tokens,
+        )
         await self.db.commit()
 
         logger.info("indexing_completed", document_id=str(document_id))
