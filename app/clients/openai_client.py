@@ -48,11 +48,13 @@ class LLMClient:
         self,
         messages: list[dict[str, str]],
         response_format: dict[str, Any] | None = None,
+        model: str | None = None,
     ) -> tuple[str, int, int]:
         """Returns (content, prompt_tokens, completion_tokens)."""
+        effective_model = model or settings.chat_model
         try:
             kwargs: dict[str, Any] = {
-                "model": settings.chat_model,
+                "model": effective_model,
                 "messages": messages,
                 "temperature": 0.1,
             }
@@ -72,10 +74,12 @@ class LLMClient:
     async def chat_completion_stream(
         self,
         messages: list[dict[str, str]],
+        model: str | None = None,
     ) -> AsyncGenerator[str, None]:
+        effective_model = model or settings.chat_model
         try:
             stream = await self.client.chat.completions.create(
-                model=settings.chat_model,
+                model=effective_model,
                 messages=messages,
                 temperature=0.1,
                 stream=True,
@@ -92,6 +96,7 @@ class LLMClient:
         text: str,
         schema: dict[str, Any],
         instructions: str | None = None,
+        model: str | None = None,
     ) -> tuple[dict[str, Any], int, int]:
         """Extract structured data from text. Returns (data, prompt_tokens, completion_tokens)."""
         system_prompt = (
@@ -113,6 +118,7 @@ class LLMClient:
                 {"role": "user", "content": user_prompt},
             ],
             response_format={"type": "json_object"},
+            model=model,
         )
 
         try:
