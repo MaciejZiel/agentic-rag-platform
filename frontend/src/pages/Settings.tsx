@@ -10,10 +10,14 @@ import {
   Trash2,
   Eye,
   EyeOff,
+  User,
+  Mail,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -24,31 +28,47 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { type ModelInfo, listModels } from "@/lib/api";
+import { TwoFactorSetup } from "@/components/TwoFactorSetup";
+import type { Session } from "@/App";
 
-export function SettingsPage() {
+interface Props {
+  session: Session;
+  onSessionUpdate: (updates: Partial<Session>) => void;
+}
+
+export function SettingsPage({ session, onSessionUpdate }: Props) {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [defaultModel, setDefaultModel] = useState("");
   const [chunkStrategy, setChunkStrategy] = useState("fixed_size");
   const [maxTokens, setMaxTokens] = useState("512");
   const [overlapTokens, setOverlapTokens] = useState("50");
 
-  // API key management (demo)
+  // Profile editing
+  const [displayName, setDisplayName] = useState(session.tenantName);
+  const [profileEmail, setProfileEmail] = useState(session.email ?? "");
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  // 2FA
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(() => {
+    return localStorage.getItem("2fa_enabled") === "true";
+  });
+
+  // API key management
   const [apiKeys, setApiKeys] = useState<Array<{ id: string; prefix: string; label: string; created: string }>>([
-    { id: "1", prefix: "rag_abc12345", label: "Default Key", created: "2026-04-01" },
+    { id: "1", prefix: session.apiKey?.slice(0, 12) || "rag_abc12345", label: "Default Key", created: "2026-04-01" },
   ]);
   const [showKey, setShowKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Webhooks (demo)
+  // Webhooks
   const [webhookUrl, setWebhookUrl] = useState("");
-  const [webhooks, setWebhooks] = useState<Array<{ id: string; url: string; event: string }>>([]);
+  const [webhooks, setWebhooks] = useState<Array<{ id: string; url: string; event_type?: string }>>([]);
 
   useEffect(() => {
     listModels().then((res) => {
       setModels(res.models);
       setDefaultModel(res.default);
     });
-    // Load webhooks
     fetch("/api/v1/webhooks")
       .then((r) => r.json())
       .then((data) => {
@@ -61,6 +81,21 @@ export function SettingsPage() {
     navigator.clipboard.writeText(prefix + "...");
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  function handleSaveProfile() {
+    onSessionUpdate({
+      tenantName: displayName,
+      email: profileEmail || undefined,
+    });
+    setProfileSaved(true);
+    setTimeout(() => setProfileSaved(false), 2000);
+  }
+
+  function handleToggle2FA(enabled: boolean) {
+    setTwoFactorEnabled(enabled);
+    localStorage.setItem("2fa_enabled", String(enabled));
+    onSessionUpdate({ twoFactorEnabled: enabled });
   }
 
   async function handleAddWebhook() {
@@ -91,9 +126,84 @@ export function SettingsPage() {
           <Settings className="h-6 w-6" /> Settings
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Manage your API keys, webhooks, and default configurations.
+          Manage your profile, security, API keys, and configurations.
         </p>
       </div>
+
+      {/* Profile */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <User className="h-4 w-4" /> Profile
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="rounded-full bg-primary/10 p-4">
+              {session.accountType === "organization" ? (
+                <Building2 className="h-6 w-6 text-primary" />
+              ) : (
+                <User className="h-6 w-6 text-primary" />
+              )}
+            </div>
+            <div className="flex-1 space-y-1">
+              <p className="text-sm font-medium">{session.tenantName}</p>
+              <p className="text-xs text-muted-foreground">
+                {session.email || "No email set"} ·{" "}
+                {session.accountType === "organization"
+                  ? "Organization"
+                  : "Personal"}{" "}
+                account
+              </p>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="profile-name">Display Name</Label>
+              <Input
+                id="profile-name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-email">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="profile-email"
+                  type="email"
+                  value={profileEmail}
+                  onChange={(e) => setProfileEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  className="text-sm pl-9"
+                />
+              </div>
+            </div>
+          </div>
+
+          <Button
+            size="sm"
+            onClick={handleSaveProfile}
+            disabled={!displayName.trim()}
+          >
+            {profileSaved ? (
+              <>
+                <Check className="h-3 w-3 mr-1" /> Saved
+              </>
+            ) : (
+              "Save Profile"
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Security / 2FA */}
+      <TwoFactorSetup enabled={twoFactorEnabled} onToggle={handleToggle2FA} />
 
       {/* API Keys */}
       <Card>
@@ -159,7 +269,7 @@ export function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <label className="text-xs text-muted-foreground">Chat Model</label>
+            <Label>Chat Model</Label>
             <Select value={defaultModel} onValueChange={setDefaultModel}>
               <SelectTrigger className="text-sm">
                 <SelectValue />
@@ -177,9 +287,7 @@ export function SettingsPage() {
           <Separator />
 
           <div className="space-y-2">
-            <label className="text-xs text-muted-foreground">
-              Chunking Strategy
-            </label>
+            <Label>Chunking Strategy</Label>
             <Select value={chunkStrategy} onValueChange={setChunkStrategy}>
               <SelectTrigger className="text-sm">
                 <SelectValue />
@@ -194,9 +302,7 @@ export function SettingsPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">
-                Max Tokens per Chunk
-              </label>
+              <Label>Max Tokens per Chunk</Label>
               <Input
                 type="number"
                 value={maxTokens}
@@ -205,9 +311,7 @@ export function SettingsPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">
-                Overlap Tokens
-              </label>
+              <Label>Overlap Tokens</Label>
               <Input
                 type="number"
                 value={overlapTokens}
