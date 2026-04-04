@@ -3,6 +3,7 @@ import { FileText, MessageSquare, Braces } from "lucide-react";
 import { DocumentsPage } from "@/pages/Documents";
 import { ChatPage } from "@/pages/Chat";
 import { ExtractPage } from "@/pages/Extract";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navItems = [
   { to: "/", icon: FileText, label: "Documents" },
@@ -42,8 +43,11 @@ export default function App() {
               </NavLink>
             ))}
           </nav>
-          <div className="p-4 border-t text-xs text-muted-foreground">
-            Powered by RAG + OpenRouter
+          <div className="p-4 border-t flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">
+              Powered by RAG + OpenRouter
+            </span>
+            <ThemeToggle />
           </div>
         </aside>
 
