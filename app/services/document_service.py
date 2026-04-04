@@ -5,6 +5,8 @@ from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.clients.openai_client import LLMClient
+from app.clients.qdrant_client import VectorStoreClient
 from app.core.exceptions import (
     FileTooLargeError,
     NotFoundError,
@@ -81,7 +83,14 @@ class DocumentService:
             total=total,
         )
 
-    async def start_indexing(self, document_id: uuid.UUID) -> DocumentOut:
+    async def start_indexing(
+        self,
+        document_id: uuid.UUID,
+        llm: "LLMClient",
+        vector_store: "VectorStoreClient",
+    ) -> DocumentOut:
+        from app.services.indexing_service import IndexingService
+
         doc = await self.repo.get_by_id(document_id)
         if not doc:
             raise NotFoundError("Document", document_id)
@@ -91,13 +100,10 @@ class DocumentService:
                 f"Document is in '{doc.status}' state and cannot be re-indexed"
             )
 
-        await self.repo.update_status(document_id, DocumentStatus.PROCESSING)
+        indexing = IndexingService(self.db, llm, vector_store)
+        await indexing.index_document(document_id)
         await self.db.commit()
 
-        from app.workers.tasks import index_document_task
-
-        index_document_task.delay(str(document_id))
-
-        logger.info("indexing_started", document_id=str(document_id))
+        logger.info("indexing_completed", document_id=str(document_id))
         doc = await self.repo.get_by_id(document_id)
         return DocumentOut.model_validate(doc)

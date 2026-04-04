@@ -3,7 +3,10 @@ import uuid
 from fastapi import APIRouter, Depends, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.clients.openai_client import LLMClient
+from app.clients.qdrant_client import VectorStoreClient
 from app.core.database import get_db
+from app.core.dependencies import get_llm_client, get_vector_store
 from app.schemas.document import DocumentListOut, DocumentOut
 from app.services.document_service import DocumentService
 
@@ -23,9 +26,11 @@ async def upload_document(
 async def index_document(
     document_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    llm: LLMClient = Depends(get_llm_client),
+    vector_store: VectorStoreClient = Depends(get_vector_store),
 ) -> DocumentOut:
     service = DocumentService(db)
-    return await service.start_indexing(document_id)
+    return await service.start_indexing(document_id, llm, vector_store)
 
 
 @router.get("", response_model=DocumentListOut)
