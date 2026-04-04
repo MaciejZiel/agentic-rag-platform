@@ -17,6 +17,9 @@ class AskRequest(BaseModel):
     )
     top_k: int = Field(default=5, ge=1, le=20)
     model: str | None = Field(default=None, description="Override chat model")
+    conversation_id: uuid.UUID | None = Field(
+        default=None, description="Continue an existing conversation"
+    )
 
 
 class AskResponse(BaseModel):
@@ -25,6 +28,20 @@ class AskResponse(BaseModel):
     model: str
     token_usage: int
     cost_usd: float
+    conversation_id: uuid.UUID | None = None
+
+
+class ConversationOut(BaseModel):
+    id: uuid.UUID
+    title: str
+    created_at: str
+    updated_at: str
+    message_count: int = 0
+
+
+class ConversationListOut(BaseModel):
+    conversations: list[ConversationOut]
+    total: int
 
 
 class UsageMetadata(BaseModel):
