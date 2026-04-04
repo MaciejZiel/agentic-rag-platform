@@ -31,43 +31,20 @@ import {
   InputOTPSlot,
   InputOTPSeparator,
 } from "@/components/ui/input-otp";
-import { createTenant } from "@/lib/api";
+import {
+  authRegister,
+  authVerifyEmail,
+  authLogin,
+  authResendCode,
+  setTokens,
+} from "@/lib/api";
 
 interface Props {
-  onLogin: (apiKey: string, tenantName: string, email?: string) => void;
+  onLogin: () => void;
 }
 
 type AccountType = "personal" | "organization";
 type RegisterStep = "type" | "details" | "verify-email" | "done";
-
-/** Simple account store in localStorage so email+password login works. */
-interface StoredAccount {
-  email: string;
-  password: string;
-  apiKey: string;
-  name: string;
-  accountType: AccountType;
-  verified: boolean;
-  createdAt: string;
-}
-
-function getAccounts(): StoredAccount[] {
-  try {
-    return JSON.parse(localStorage.getItem("accounts") ?? "[]");
-  } catch {
-    return [];
-  }
-}
-
-function saveAccount(account: StoredAccount) {
-  const accounts = getAccounts().filter((a) => a.email !== account.email);
-  accounts.push(account);
-  localStorage.setItem("accounts", JSON.stringify(accounts));
-}
-
-function findAccount(email: string): StoredAccount | undefined {
-  return getAccounts().find((a) => a.email.toLowerCase() === email.toLowerCase());
-}
 
 export function LoginPage({ onLogin }: Props) {
   const [tab, setTab] = useState<"login" | "register">("login");
@@ -89,11 +66,9 @@ export function LoginPage({ onLogin }: Props) {
   const [registerPassword, setRegisterPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showRegPassword, setShowRegPassword] = useState(false);
-  const [pendingAccount, setPendingAccount] = useState<StoredAccount | null>(null);
 
   // Email verification
   const [verifyCode, setVerifyCode] = useState("");
-  const [generatedCode, setGeneratedCode] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
 
   function resetRegister() {
@@ -103,7 +78,6 @@ export function LoginPage({ onLogin }: Props) {
     setRegisterEmail("");
     setRegisterPassword("");
     setConfirmPassword("");
-    setPendingAccount(null);
     setVerifyCode("");
     setError(null);
   }
@@ -115,41 +89,17 @@ export function LoginPage({ onLogin }: Props) {
     setLoading(true);
 
     try {
-      const account = findAccount(loginEmail);
-      if (!account) {
-        setError("No account found with this email. Please sign up first.");
-        setLoading(false);
-        return;
-      }
-      if (account.password !== loginPassword) {
-        setError("Incorrect password. Please try again.");
-        setLoading(false);
-        return;
-      }
-      if (!account.verified) {
-        setError("Please verify your email address before signing in.");
-        setLoading(false);
-        return;
-      }
-
-      // Validate API key still works against backend
-      const res = await fetch("/api/v1/documents", {
-        headers: { "X-API-Key": account.apiKey },
-      });
-      if (res.ok) {
-        onLogin(account.apiKey, account.name, account.email);
-      } else {
-        // API key invalid (server reset?), still let them in with stored data
-        onLogin(account.apiKey, account.name, account.email);
-      }
-    } catch {
-      setError("Unable to connect to the server. Please try again.");
+      const result = await authLogin(loginEmail, loginPassword);
+      setTokens(result.access_token, result.refresh_token);
+      onLogin();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Login failed");
     } finally {
       setLoading(false);
     }
   }
 
-  // ��── Register ───
+  // ─── Register ───
   async function handleRegister() {
     const name = accountType === "personal" ? fullName : orgName;
     if (!name.trim() || !registerEmail.trim() || !registerPassword.trim()) return;
@@ -163,33 +113,10 @@ export function LoginPage({ onLogin }: Props) {
       return;
     }
 
-    const existing = findAccount(registerEmail);
-    if (existing?.verified) {
-      setError("An account with this email already exists. Please sign in.");
-      return;
-    }
-
     setError(null);
     setLoading(true);
     try {
-      const result = await createTenant(name);
-
-      const account: StoredAccount = {
-        email: registerEmail,
-        password: registerPassword,
-        apiKey: result.api_key,
-        name,
-        accountType,
-        verified: false,
-        createdAt: new Date().toISOString(),
-      };
-      setPendingAccount(account);
-
-      // Generate a 6-digit code (in real app this goes via email)
-      const code = String(Math.floor(100000 + Math.random() * 900000));
-      setGeneratedCode(code);
-      console.log(`[DEV] Email verification code for ${registerEmail}: ${code}`);
-
+      await authRegister(registerEmail, registerPassword, name, accountType);
       setRegisterStep("verify-email");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Registration failed");
@@ -198,26 +125,24 @@ export function LoginPage({ onLogin }: Props) {
     }
   }
 
-  function handleVerifyEmail() {
-    if (verifyCode !== generatedCode) {
-      setError("Invalid verification code. Please check your email and try again.");
-      return;
-    }
-    if (!pendingAccount) return;
-
+  // ─── Email verification ───
+  async function handleVerifyEmail() {
     setError(null);
-    const verified = { ...pendingAccount, verified: true };
-    saveAccount(verified);
-    setPendingAccount(verified);
-    setRegisterStep("done");
+    setLoading(true);
+    try {
+      const result = await authVerifyEmail(registerEmail, verifyCode);
+      setTokens(result.access_token, result.refresh_token);
+      setRegisterStep("done");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Verification failed");
+    } finally {
+      setLoading(false);
+    }
   }
 
   function handleResendCode() {
     if (resendCooldown > 0) return;
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    setGeneratedCode(code);
-    setVerifyCode("");
-    console.log(`[DEV] New verification code for ${registerEmail}: ${code}`);
+    authResendCode(registerEmail);
     setResendCooldown(30);
     const interval = setInterval(() => {
       setResendCooldown((c) => {
@@ -228,12 +153,6 @@ export function LoginPage({ onLogin }: Props) {
         return c - 1;
       });
     }, 1000);
-  }
-
-  function handleGoToDashboard() {
-    if (pendingAccount) {
-      onLogin(pendingAccount.apiKey, pendingAccount.name, pendingAccount.email);
-    }
   }
 
   // Password strength indicator
@@ -752,9 +671,15 @@ export function LoginPage({ onLogin }: Props) {
                   <Button
                     className="w-full"
                     onClick={handleVerifyEmail}
-                    disabled={verifyCode.length < 6}
+                    disabled={verifyCode.length < 6 || loading}
                   >
-                    Verify Email <ArrowRight className="h-4 w-4 ml-2" />
+                    {loading ? (
+                      "Verifying..."
+                    ) : (
+                      <>
+                        Verify Email <ArrowRight className="h-4 w-4 ml-2" />
+                      </>
+                    )}
                   </Button>
 
                   <div className="text-center">
@@ -777,8 +702,8 @@ export function LoginPage({ onLogin }: Props) {
 
                   <div className="rounded-lg bg-muted/50 border px-3 py-2">
                     <p className="text-[10px] text-muted-foreground text-center">
-                      <strong>Dev mode:</strong> Check the browser console for the
-                      verification code.
+                      <strong>Dev mode:</strong> Check the backend server logs
+                      for the verification code.
                     </p>
                   </div>
                 </>
@@ -793,8 +718,8 @@ export function LoginPage({ onLogin }: Props) {
                       Welcome aboard!
                     </h3>
                     <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                      Your account has been created and verified. You can now sign
-                      in with your email and password.
+                      Your account has been created and verified. You're all set
+                      to start using the platform.
                     </p>
                   </div>
 
@@ -808,14 +733,7 @@ export function LoginPage({ onLogin }: Props) {
                     </p>
                   </div>
 
-                  <div className="rounded-lg bg-muted/50 border px-3 py-2">
-                    <p className="text-xs text-muted-foreground">
-                      Your API key for programmatic access is available in{" "}
-                      <strong>Settings &gt; API Keys</strong> after you sign in.
-                    </p>
-                  </div>
-
-                  <Button className="w-full" onClick={handleGoToDashboard}>
+                  <Button className="w-full" onClick={onLogin}>
                     Go to Dashboard <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 </div>
@@ -825,21 +743,6 @@ export function LoginPage({ onLogin }: Props) {
                 <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2.5 text-sm text-destructive text-center">
                   {error}
                 </div>
-              )}
-
-              {tab === "login" && (
-                <>
-                  <Separator />
-                  <div className="text-center">
-                    <Button
-                      variant="ghost"
-                      className="text-xs text-muted-foreground"
-                      onClick={() => onLogin("", "Guest")}
-                    >
-                      Continue as guest — no account needed
-                    </Button>
-                  </div>
-                </>
               )}
             </CardContent>
           </Card>
