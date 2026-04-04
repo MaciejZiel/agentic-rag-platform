@@ -8,12 +8,16 @@ from app.clients.openai_client import LLMClient, estimate_cost
 from app.clients.qdrant_client import VectorStoreClient
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.models.conversation import Conversation, ConversationMessage
 from app.models.query import ChatQuery
+from app.repositories.conversation_repository import ConversationRepository
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.query_repository import QueryRepository
 from app.schemas.qa import AskRequest, AskResponse, SourceCitation
 
 logger = get_logger(__name__)
+
+MAX_HISTORY_MESSAGES = 10  # last N messages to include as context
 
 
 class QAService:
@@ -25,9 +29,29 @@ class QAService:
         self.vector_store = vector_store
         self.doc_repo = DocumentRepository(db)
         self.query_repo = QueryRepository(db)
+        self.conv_repo = ConversationRepository(db)
+
+    async def _get_or_create_conversation(
+        self, conversation_id: uuid.UUID | None,
+    ) -> Conversation:
+        if conversation_id:
+            conv = await self.conv_repo.get_by_id(conversation_id)
+            if conv:
+                return conv
+        conv = Conversation(title="New conversation")
+        return await self.conv_repo.create(conv)
+
+    def _build_history_messages(self, conversation: Conversation) -> list[dict[str, str]]:
+        """Build chat history from conversation messages (last N)."""
+        msgs = conversation.messages or []
+        recent = msgs[-MAX_HISTORY_MESSAGES:]
+        return [{"role": m.role, "content": m.content} for m in recent]
 
     async def ask(self, request: AskRequest) -> AskResponse:
         model = request.model or settings.chat_model
+
+        # Conversation handling
+        conv = await self._get_or_create_conversation(request.conversation_id)
 
         # Embed the question
         query_embeddings = await self.llm.create_embeddings([request.question])
@@ -48,6 +72,7 @@ class QAService:
                 model=model,
                 token_usage=0,
                 cost_usd=0.0,
+                conversation_id=conv.id,
             )
 
         # Fetch chunk contents from DB
@@ -74,8 +99,8 @@ class QAService:
 
         context = "\n\n".join(context_parts)
 
-        # Generate answer
-        messages = [
+        # Build messages with history
+        messages: list[dict[str, str]] = [
             {
                 "role": "system",
                 "content": (
@@ -84,11 +109,12 @@ class QAService:
                     "doesn't contain enough information, say so clearly."
                 ),
             },
-            {
-                "role": "user",
-                "content": f"Context:\n{context}\n\nQuestion: {request.question}",
-            },
         ]
+        messages.extend(self._build_history_messages(conv))
+        messages.append({
+            "role": "user",
+            "content": f"Context:\n{context}\n\nQuestion: {request.question}",
+        })
 
         answer, prompt_tokens, completion_tokens = await self.llm.chat_completion(
             messages, model=model,
@@ -96,9 +122,20 @@ class QAService:
         total_tokens = prompt_tokens + completion_tokens
         cost = estimate_cost(model, prompt_tokens, completion_tokens)
 
+        # Save messages to conversation
+        position = len(conv.messages) if conv.messages else 0
+        await self.conv_repo.add_message(ConversationMessage(
+            conversation_id=conv.id, role="user", content=request.question, position=position,
+        ))
+        source_json = json.dumps([s.model_dump(mode="json") for s in sources])
+        await self.conv_repo.add_message(ConversationMessage(
+            conversation_id=conv.id, role="assistant", content=answer,
+            position=position + 1, model=model, token_usage=total_tokens,
+            source_chunks_json=source_json,
+        ))
+
         # Persist the query
         doc_ids_json = json.dumps([str(s.document_id) for s in sources])
-        source_json = json.dumps([s.model_dump(mode="json") for s in sources])
         chat_query = ChatQuery(
             question=request.question,
             answer=answer,
@@ -118,10 +155,14 @@ class QAService:
             model=model,
             token_usage=total_tokens,
             cost_usd=cost,
+            conversation_id=conv.id,
         )
 
     async def ask_stream(self, request: AskRequest) -> AsyncGenerator[str, None]:
         model = request.model or settings.chat_model
+
+        # Conversation handling
+        conv = await self._get_or_create_conversation(request.conversation_id)
 
         # Embed and search
         query_embeddings = await self.llm.create_embeddings([request.question])
@@ -136,7 +177,7 @@ class QAService:
         if not results:
             yield f"data: {json.dumps({'type': 'sources', 'sources': []})}\n\n"
             yield f"data: {json.dumps({'type': 'token', 'content': 'No relevant sources found for this question.'})}\n\n"
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'conversation_id': str(conv.id)})}\n\n"
             return
 
         chunk_ids = [uuid.UUID(r["payload"]["chunk_id"]) for r in results]
@@ -158,7 +199,8 @@ class QAService:
 
         context = "\n\n".join(context_parts)
 
-        messages = [
+        # Build messages with history
+        messages: list[dict[str, str]] = [
             {
                 "role": "system",
                 "content": (
@@ -166,17 +208,31 @@ class QAService:
                     "context. Always cite your sources using [Source N] notation."
                 ),
             },
-            {
-                "role": "user",
-                "content": f"Context:\n{context}\n\nQuestion: {request.question}",
-            },
         ]
+        messages.extend(self._build_history_messages(conv))
+        messages.append({
+            "role": "user",
+            "content": f"Context:\n{context}\n\nQuestion: {request.question}",
+        })
 
         # Send sources first as SSE event
         yield f"data: {json.dumps({'type': 'sources', 'sources': sources})}\n\n"
 
         # Stream the answer
+        answer = ""
         async for token in self.llm.chat_completion_stream(messages, model=model):
+            answer += token
             yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
 
-        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        # Save to conversation after streaming completes
+        position = len(conv.messages) if conv.messages else 0
+        await self.conv_repo.add_message(ConversationMessage(
+            conversation_id=conv.id, role="user", content=request.question, position=position,
+        ))
+        await self.conv_repo.add_message(ConversationMessage(
+            conversation_id=conv.id, role="assistant", content=answer,
+            position=position + 1, model=model,
+        ))
+        await self.db.commit()
+
+        yield f"data: {json.dumps({'type': 'done', 'conversation_id': str(conv.id)})}\n\n"
