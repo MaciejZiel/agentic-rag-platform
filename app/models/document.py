@@ -30,6 +30,7 @@ class Document(BaseModel):
     )
     chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    file_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
 
     chunks: Mapped[list["DocumentChunk"]] = relationship(
         back_populates="document", cascade="all, delete-orphan"

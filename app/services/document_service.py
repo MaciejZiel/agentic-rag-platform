@@ -1,7 +1,9 @@
+import hashlib
 import uuid
 from pathlib import Path
 
 from fastapi import UploadFile
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -41,6 +43,7 @@ class DocumentService:
 
         # Stream to disk in chunks — never hold the full file in memory
         file_size = 0
+        sha256 = hashlib.sha256()
         try:
             with file_path.open("wb") as f:
                 while chunk := await file.read(1024 * 256):  # 256 KB chunks
@@ -50,11 +53,27 @@ class DocumentService:
                         file_path.unlink(missing_ok=True)
                         raise FileTooLargeError(settings.max_upload_size_mb)
                     f.write(chunk)
+                    sha256.update(chunk)
         except FileTooLargeError:
             raise
         except Exception:
             file_path.unlink(missing_ok=True)
             raise
+
+        file_hash = sha256.hexdigest()
+
+        # Check for duplicate file within the same tenant
+        existing = (await self.db.execute(
+            select(Document).where(
+                Document.file_hash == file_hash,
+                Document.tenant_id == tenant_id,
+            )
+        )).scalar_one_or_none()
+        if existing:
+            file_path.unlink(missing_ok=True)
+            raise ValidationError(
+                f"Duplicate file detected: '{existing.filename}' has the same content"
+            )
 
         document = Document(
             id=file_id,
@@ -63,6 +82,7 @@ class DocumentService:
             content_type=file.content_type or "application/octet-stream",
             file_size=file_size,
             file_path=str(file_path),
+            file_hash=file_hash,
             status=DocumentStatus.UPLOADED,
         )
         document = await self.repo.create(document)
