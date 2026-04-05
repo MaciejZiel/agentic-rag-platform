@@ -19,6 +19,7 @@ from app.core.logging import get_logger
 from app.models.document import Document, DocumentStatus
 from app.repositories.document_repository import DocumentRepository
 from app.schemas.document import DocumentListOut, DocumentOut
+from app.utils.file_validation import validate_file_magic
 from app.utils.text_extraction import SUPPORTED_EXTENSIONS
 
 logger = get_logger(__name__)
@@ -61,6 +62,13 @@ class DocumentService:
             raise
 
         file_hash = sha256.hexdigest()
+
+        # Validate magic bytes match file extension
+        if not validate_file_magic(file_path, ext):
+            file_path.unlink(missing_ok=True)
+            raise ValidationError(
+                f"File content does not match the '{ext}' format. The file may be corrupted or have a wrong extension."
+            )
 
         # Check for duplicate file within the same tenant
         existing = (await self.db.execute(
