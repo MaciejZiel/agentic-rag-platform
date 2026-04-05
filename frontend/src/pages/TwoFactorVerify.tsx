@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Shield, ArrowRight, KeyRound, Mail } from "lucide-react";
+import { authVerify2FA } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,25 +26,25 @@ export function TwoFactorVerify({ email, onVerified, onCancel }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  function handleVerify() {
+  async function handleVerify() {
     setError(null);
     setLoading(true);
 
-    // Simulate verification (accept any 6-digit code or valid backup code)
-    setTimeout(() => {
-      if (method === "totp" && otpValue.length === 6) {
-        onVerified();
-      } else if (method === "backup" && backupCode.trim().length >= 8) {
-        onVerified();
-      } else {
-        setError(
-          method === "totp"
-            ? "Invalid verification code. Please try again."
-            : "Invalid backup code. Please check and try again."
-        );
-      }
+    const code = method === "totp" ? otpValue : backupCode.trim();
+    if (!code) {
+      setError("Please enter a code.");
       setLoading(false);
-    }, 800);
+      return;
+    }
+
+    try {
+      await authVerify2FA(email ?? "", code);
+      onVerified();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Verification failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

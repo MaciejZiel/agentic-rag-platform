@@ -47,16 +47,27 @@ async function refreshAccessToken(): Promise<boolean> {
   }
 }
 
-/** Fetch with automatic token refresh on 401. */
+const DEFAULT_TIMEOUT_MS = 30_000;
+
+function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const signal = init?.signal
+    ? init.signal // caller-provided signal takes priority
+    : controller.signal;
+  return fetch(url, { ...init, signal }).finally(() => clearTimeout(timer));
+}
+
+/** Fetch with automatic token refresh on 401 and timeout. */
 async function authFetch(url: string, init?: RequestInit): Promise<Response> {
   const headers = { ...authHeaders(), ...init?.headers };
-  let res = await fetch(url, { ...init, headers });
+  let res = await fetchWithTimeout(url, { ...init, headers });
 
   if (res.status === 401 && refreshToken) {
     const refreshed = await refreshAccessToken();
     if (refreshed) {
       const retryHeaders = { ...authHeaders(), ...init?.headers };
-      res = await fetch(url, { ...init, headers: retryHeaders });
+      res = await fetchWithTimeout(url, { ...init, headers: retryHeaders });
     }
   }
   return res;
@@ -128,6 +139,22 @@ export async function authLogin(
 export async function authGetMe(): Promise<AuthUser> {
   const res = await authFetch(`${BASE}/auth/me`);
   if (!res.ok) throw new Error("Not authenticated");
+  return res.json();
+}
+
+export async function authVerify2FA(
+  email: string,
+  code: string,
+): Promise<{ message: string }> {
+  const res = await fetch(`${BASE}/auth/verify-2fa`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail ?? "Verification failed");
+  }
   return res.json();
 }
 
@@ -266,7 +293,11 @@ export async function* askStream(
     buffer = lines.pop()!;
     for (const line of lines) {
       if (line.startsWith("data: ")) {
-        yield JSON.parse(line.slice(6));
+        try {
+          yield JSON.parse(line.slice(6));
+        } catch {
+          // Skip malformed SSE data frames
+        }
       }
     }
   }
@@ -807,6 +838,37 @@ export async function getConversation(id: string): Promise<ConversationDetail> {
 export async function deleteConversation(id: string): Promise<void> {
   const res = await authFetch(`${BASE}/conversations/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete conversation");
+}
+
+// --- Webhooks ---
+
+export interface WebhookItem {
+  id: string;
+  url: string;
+  event_type: string;
+  is_active: boolean;
+}
+
+export async function listWebhooks(): Promise<WebhookItem[]> {
+  const res = await authFetch(`${BASE}/webhooks`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+export async function createWebhook(url: string, eventType = "*"): Promise<WebhookItem> {
+  const res = await authFetch(`${BASE}/webhooks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url, event_type: eventType }),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail ?? "Failed to create webhook");
+  return res.json();
+}
+
+export async function deleteWebhook(id: string): Promise<void> {
+  const res = await authFetch(`${BASE}/webhooks/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete webhook");
 }
 
 // --- Query history ---
