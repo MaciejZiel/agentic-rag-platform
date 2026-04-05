@@ -47,7 +47,7 @@ def _build_html(code: str, name: str) -> str:
 async def send_verification_email(to_email: str, code: str, name: str) -> bool:
     """Send verification code email via Resend. Returns True if sent."""
     if not _is_configured():
-        logger.warning("resend_not_configured", email=to_email, code=code)
+        logger.warning("resend_not_configured", email=to_email)
         return False
 
     resend.api_key = settings.resend_api_key
@@ -56,7 +56,7 @@ async def send_verification_email(to_email: str, code: str, name: str) -> bool:
         resend.Emails.send({
             "from": settings.email_from,
             "to": [to_email],
-            "subject": f"Your verification code: {code}",
+            "subject": "Cortex — Verify your email address",
             "html": _build_html(code, name),
         })
         logger.info("verification_email_sent", email=to_email)
