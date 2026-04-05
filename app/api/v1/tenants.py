@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import generate_api_key
+from app.core.auth import generate_api_key, require_tenant
 from app.core.database import get_db
 from app.models.tenant import ApiKey, Tenant
 
@@ -23,6 +23,7 @@ class TenantResponse(BaseModel):
 async def create_tenant(
     request: CreateTenantRequest,
     db: AsyncSession = Depends(get_db),
+    _caller: Tenant = Depends(require_tenant),
 ) -> TenantResponse:
     tenant = Tenant(name=request.name)
     db.add(tenant)

@@ -1,11 +1,12 @@
 import uuid
 
-from fastapi import APIRouter, Depends, UploadFile
+from fastapi import APIRouter, Depends, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.openai_client import LLMClient
 from app.clients.qdrant_client import VectorStoreClient
-from app.core.auth import get_current_tenant, get_tenant_id
+from app.core.auth import get_current_tenant, get_tenant_id, require_tenant
+from app.core.rate_limit import limiter
 from app.core.database import get_db
 from app.core.dependencies import get_llm_client, get_vector_store
 from app.models.tenant import Tenant
@@ -16,30 +17,36 @@ router = APIRouter()
 
 
 @router.post("/upload", response_model=DocumentOut, status_code=201)
+@limiter.limit("20/minute")
 async def upload_document(
+    request: Request,
     file: UploadFile,
     db: AsyncSession = Depends(get_db),
-    tenant: Tenant | None = Depends(get_current_tenant),
+    tenant: Tenant = Depends(require_tenant),
 ) -> DocumentOut:
     service = DocumentService(db)
-    return await service.upload(file, tenant_id=get_tenant_id(tenant))
+    return await service.upload(file, tenant_id=tenant.id)
 
 
 @router.post("/{document_id}/index", response_model=DocumentOut)
+@limiter.limit("10/minute")
 async def index_document(
+    request: Request,
     document_id: uuid.UUID,
-    request: IndexRequest | None = None,
+    body: IndexRequest | None = None,
     db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(require_tenant),
     llm: LLMClient = Depends(get_llm_client),
     vector_store: VectorStoreClient = Depends(get_vector_store),
 ) -> DocumentOut:
-    req = request or IndexRequest()
+    req = body or IndexRequest()
     service = DocumentService(db)
     return await service.start_indexing(
         document_id, llm, vector_store,
         chunk_strategy=req.chunk_strategy,
         max_tokens=req.max_tokens,
         overlap_tokens=req.overlap_tokens,
+        tenant_id=tenant.id,
     )
 
 
@@ -48,11 +55,11 @@ async def list_documents(
     skip: int = 0,
     limit: int = 20,
     db: AsyncSession = Depends(get_db),
-    tenant: Tenant | None = Depends(get_current_tenant),
+    tenant: Tenant = Depends(require_tenant),
 ) -> DocumentListOut:
     service = DocumentService(db)
     return await service.list_documents(
-        skip=skip, limit=limit, tenant_id=get_tenant_id(tenant),
+        skip=skip, limit=limit, tenant_id=tenant.id,
     )
 
 
@@ -60,18 +67,25 @@ async def list_documents(
 async def get_document(
     document_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(require_tenant),
 ) -> DocumentOut:
     service = DocumentService(db)
-    return await service.get_document(document_id)
+    return await service.get_document(document_id, tenant_id=tenant.id)
 
 
 @router.get("/{document_id}/chunks")
 async def get_document_chunks(
     document_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(require_tenant),
 ) -> list[dict]:
     from app.repositories.document_repository import DocumentRepository
     repo = DocumentRepository(db)
+    # Verify document belongs to tenant
+    doc = await repo.get_by_id(document_id)
+    if not doc or doc.tenant_id != tenant.id:
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError("Document", document_id)
     chunks = await repo.get_chunks_by_document(document_id)
     return [
         {
@@ -90,6 +104,7 @@ async def preview_chunks(
     document_id: uuid.UUID,
     request: IndexRequest | None = None,
     db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(require_tenant),
 ) -> dict:
     """Preview how a document would be chunked without actually indexing it."""
     from pathlib import Path as _Path
@@ -98,7 +113,7 @@ async def preview_chunks(
     from app.utils.text_extraction import extract_text
 
     service = DocumentService(db)
-    doc_out = await service.get_document(document_id)
+    doc_out = await service.get_document(document_id, tenant_id=tenant.id)
 
     from app.repositories.document_repository import DocumentRepository
     repo = DocumentRepository(db)
@@ -136,7 +151,8 @@ async def preview_chunks(
 async def delete_document(
     document_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(require_tenant),
     vector_store: VectorStoreClient = Depends(get_vector_store),
 ) -> None:
     service = DocumentService(db)
-    await service.delete_document(document_id, vector_store)
+    await service.delete_document(document_id, vector_store, tenant_id=tenant.id)

@@ -5,10 +5,12 @@ from pydantic import BaseModel
 from sqlalchemy import cast, func, select, Date
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import require_tenant
 from app.core.database import get_db
 from app.models.conversation import Conversation, ConversationMessage
 from app.models.document import Document
 from app.models.query import ChatQuery, ExtractionRequest
+from app.models.tenant import Tenant
 
 router = APIRouter()
 
@@ -52,7 +54,10 @@ class DashboardTimeseries(BaseModel):
 
 
 @router.get("", response_model=PlatformStats)
-async def get_stats(db: AsyncSession = Depends(get_db)) -> PlatformStats:
+async def get_stats(
+    db: AsyncSession = Depends(get_db),
+    _tenant: Tenant = Depends(require_tenant),
+) -> PlatformStats:
     # Document stats
     doc_count = (await db.execute(select(func.count(Document.id)))).scalar_one()
     indexed_count = (await db.execute(
@@ -115,6 +120,7 @@ async def get_stats(db: AsyncSession = Depends(get_db)) -> PlatformStats:
 async def get_stats_timeseries(
     days: int = 30,
     db: AsyncSession = Depends(get_db),
+    _tenant: Tenant = Depends(require_tenant),
 ) -> DashboardTimeseries:
     """Aggregated stats for dashboard charts."""
     since = datetime.now(timezone.utc) - timedelta(days=days)
@@ -219,6 +225,7 @@ class RateLimitStatus(BaseModel):
 @router.get("/rate-limits", response_model=RateLimitStatus)
 async def get_rate_limit_status(
     db: AsyncSession = Depends(get_db),
+    _tenant: Tenant = Depends(require_tenant),
 ) -> RateLimitStatus:
     """Current usage within the rate limit window."""
     window_minutes = 60

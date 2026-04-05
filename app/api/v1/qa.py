@@ -4,10 +4,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.openai_client import LLMClient
 from app.clients.qdrant_client import VectorStoreClient
+from app.core.auth import require_tenant
 from app.core.database import get_db
 from app.core.dependencies import get_llm_client, get_vector_store
 from app.core.rate_limit import limiter
 from app.models.query import ChatQuery
+from app.models.tenant import Tenant
 from app.schemas.qa import AskRequest, AskResponse
 from app.services.qa_service import QAService
 
@@ -19,10 +21,14 @@ async def get_query_history(
     skip: int = 0,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(require_tenant),
 ) -> list[dict]:
     from sqlalchemy import select
     result = await db.execute(
-        select(ChatQuery).order_by(ChatQuery.created_at.desc()).offset(skip).limit(limit)
+        select(ChatQuery)
+        .where(ChatQuery.tenant_id == tenant.id)
+        .order_by(ChatQuery.created_at.desc())
+        .offset(skip).limit(limit)
     )
     return [
         {
@@ -44,6 +50,7 @@ async def ask_question(
     request: Request,
     body: AskRequest,
     db: AsyncSession = Depends(get_db),
+    _tenant: Tenant = Depends(require_tenant),
     llm: LLMClient = Depends(get_llm_client),
     vector_store: VectorStoreClient = Depends(get_vector_store),
 ) -> AskResponse:
@@ -57,6 +64,7 @@ async def ask_question_stream(
     request: Request,
     body: AskRequest,
     db: AsyncSession = Depends(get_db),
+    _tenant: Tenant = Depends(require_tenant),
     llm: LLMClient = Depends(get_llm_client),
     vector_store: VectorStoreClient = Depends(get_vector_store),
 ) -> StreamingResponse:

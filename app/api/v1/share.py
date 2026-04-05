@@ -7,10 +7,12 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import require_tenant
 from app.core.database import get_db
 from app.core.exceptions import NotFoundError, ValidationError
 from app.models.document import Document
 from app.models.share_link import ShareLink
+from app.models.tenant import Tenant
 
 router = APIRouter()
 
@@ -42,10 +44,11 @@ class SharedDocumentOut(BaseModel):
 async def create_share_link(
     request: CreateShareLinkRequest,
     db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(require_tenant),
 ) -> ShareLinkOut:
     doc_id = uuid.UUID(request.document_id)
     doc = (await db.execute(
-        select(Document).where(Document.id == doc_id)
+        select(Document).where(Document.id == doc_id, Document.tenant_id == tenant.id)
     )).scalar_one_or_none()
     if not doc:
         raise NotFoundError("Document", doc_id)
@@ -120,6 +123,7 @@ async def get_shared_document(
 async def revoke_share_link(
     token: str,
     db: AsyncSession = Depends(get_db),
+    _tenant: Tenant = Depends(require_tenant),
 ) -> None:
     link = (await db.execute(
         select(ShareLink).where(ShareLink.token == token)
