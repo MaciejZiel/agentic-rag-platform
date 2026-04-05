@@ -118,7 +118,9 @@ export function UsagePage() {
 
   useEffect(() => {
     getQueryHistory().then(setQueries);
-    getRateLimits().then(setRateLimits).catch(() => {});
+    getRateLimits().then(setRateLimits).catch(() => {
+      // Rate limits may not be available — non-critical
+    });
   }, []);
 
   const totalTokens = queries.reduce((s, q) => s + q.token_usage, 0);
