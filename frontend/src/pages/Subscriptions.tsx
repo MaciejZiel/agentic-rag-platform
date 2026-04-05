@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { CreditCard, Check, Zap, Building2, Rocket } from "lucide-react";
+import { CreditCard, Check, Zap, Building2, Rocket, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -141,14 +142,22 @@ export function SubscriptionsPage() {
                 <Button
                   className="w-full mt-6"
                   variant={plan.current ? "outline" : plan.popular ? "default" : "outline"}
-                  onClick={() => setSelectedPlan(plan.name)}
+                  onClick={() => {
+                    if (plan.current) return;
+                    setSelectedPlan(plan.name);
+                    toast.info("Billing integration coming soon", {
+                      description: `${plan.name} plan selected. Payment processing will be available in an upcoming release.`,
+                    });
+                  }}
                   disabled={plan.current}
                 >
-                  {plan.current
-                    ? "Current Plan"
-                    : isSelected
-                    ? "Selected"
-                    : `Upgrade to ${plan.name}`}
+                  {plan.current ? (
+                    "Current Plan"
+                  ) : (
+                    <>
+                      Upgrade to {plan.name} <ExternalLink className="h-3 w-3 ml-1" />
+                    </>
+                  )}
                 </Button>
               </CardContent>
             </Card>
