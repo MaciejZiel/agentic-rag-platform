@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cortex-worker
+  namespace: cortex
+  labels:
+    app: cortex-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cortex-worker
+  template:
+    metadata:
+      labels:
+        app: cortex-worker
+    spec:
+      containers:
+        - name: worker
+          image: cortex/api:latest
+          command: ["celery", "-A", "app.workers.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+          envFrom:
+            - configMapRef:
+                name: cortex-config
+            - secretRef:
+                name: cortex-secrets
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          volumeMounts:
+            - name: uploads
+              mountPath: /data/uploads
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: cortex-uploads-pvc

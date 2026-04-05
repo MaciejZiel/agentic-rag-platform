@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cortex-api
+  namespace: cortex
+  labels:
+    app: cortex-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cortex-api
+  template:
+    metadata:
+      labels:
+        app: cortex-api
+    spec:
+      containers:
+        - name: api
+          image: cortex/api:latest
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: cortex-config
+            - secretRef:
+                name: cortex-secrets
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: uploads
+              mountPath: /data/uploads
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: cortex-uploads-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cortex-api-svc
+  namespace: cortex
+spec:
+  selector:
+    app: cortex-api
+  ports:
+    - port: 80
+      targetPort: 8000
+      protocol: TCP
+  type: ClusterIP
