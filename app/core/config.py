@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # Application
-    app_name: str = "agentic-rag-platform"
+    app_name: str = "cortex"
     app_env: str = "development"
     debug: bool = False
     log_level: str = "INFO"
@@ -53,7 +53,10 @@ class Settings(BaseSettings):
 
     # Email (Resend)
     resend_api_key: str = ""
-    email_from: str = "Agentic RAG <onboarding@resend.dev>"
+    email_from: str = "Cortex <onboarding@resend.dev>"
+
+    # CORS
+    cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
     # Celery
     celery_broker_url: str = "redis://localhost:6379/0"
