@@ -14,6 +14,11 @@ from app.models.tenant import Tenant, ApiKey  # noqa: F401
 from app.models.conversation import Conversation, ConversationMessage  # noqa: F401
 from app.models.webhook import Webhook  # noqa: F401
 from app.models.user import User  # noqa: F401
+from app.models.collection import Collection, collection_documents  # noqa: F401
+from app.models.notification import Notification  # noqa: F401
+from app.models.assistant import Assistant  # noqa: F401
+from app.models.workflow import Workflow  # noqa: F401
+from app.models.share_link import ShareLink  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.sync_database_url)

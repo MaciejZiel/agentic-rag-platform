@@ -11,6 +11,7 @@ import {
   CheckSquare,
   Square,
   Eye,
+  Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,6 +25,7 @@ import {
 } from "@/lib/api";
 import { DocumentDetail } from "@/components/DocumentDetail";
 import { ChunkPreviewDialog } from "@/components/ChunkPreviewDialog";
+import { ShareDialog } from "@/components/ShareDialog";
 import { toast } from "sonner";
 
 const statusConfig = {
@@ -53,6 +55,7 @@ export function DocumentsPage() {
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
+  const [shareDoc, setShareDoc] = useState<Document | null>(null);
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -335,6 +338,17 @@ export function DocumentsPage() {
                   </>
                 )}
 
+                {doc.status === "indexed" && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-muted-foreground"
+                    onClick={(e) => { e.stopPropagation(); setShareDoc(doc); }}
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                )}
+
                 <Button
                   size="sm"
                   variant="ghost"
@@ -379,6 +393,15 @@ export function DocumentsPage() {
               overlap_tokens: overlapTokens,
             });
           }}
+        />
+      )}
+
+      {shareDoc && (
+        <ShareDialog
+          documentId={shareDoc.id}
+          filename={shareDoc.filename}
+          open={true}
+          onClose={() => setShareDoc(null)}
         />
       )}
     </div>

@@ -721,6 +721,38 @@ export async function markNotificationRead(id: string): Promise<void> {
   await authFetch(`${BASE}/notifications/${id}/read`, { method: "POST" });
 }
 
+// --- Share Links ---
+
+export interface ShareLinkOut {
+  id: string;
+  document_id: string;
+  token: string;
+  expires_at: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export async function createShareLink(
+  documentId: string,
+  expiresInHours?: number,
+): Promise<ShareLinkOut> {
+  const res = await authFetch(`${BASE}/share`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      document_id: documentId,
+      expires_in_hours: expiresInHours ?? 72,
+    }),
+  });
+  if (!res.ok) throw new Error((await res.json()).detail ?? "Failed to create share link");
+  return res.json();
+}
+
+export async function revokeShareLink(token: string): Promise<void> {
+  const res = await authFetch(`${BASE}/share/${token}`, { method: "DELETE" });
+  if (!res.ok) throw new Error((await res.json()).detail ?? "Failed to revoke link");
+}
+
 // --- Tenants / Auth ---
 
 export interface TenantResponse {
