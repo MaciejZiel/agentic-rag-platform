@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   MessageSquare,
@@ -7,17 +7,100 @@ import {
   Clock,
   Download,
   Gauge,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  flexRender,
+  type ColumnDef,
+  type SortingState,
+} from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { type RateLimitStatus, getQueryHistory, getRateLimits } from "@/lib/api";
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString();
+interface QueryRow {
+  id: string;
+  question: string;
+  answer: string | null;
+  model: string;
+  token_usage: number;
+  cost_usd: number;
+  created_at: string;
 }
+
+const columns: ColumnDef<QueryRow>[] = [
+  {
+    accessorKey: "question",
+    header: "Question",
+    cell: ({ row }) => (
+      <span className="text-xs font-medium line-clamp-1 max-w-[200px]">
+        {row.original.question}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "model",
+    header: "Model",
+    cell: ({ row }) => (
+      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+        {row.original.model.split("/").pop()}
+      </Badge>
+    ),
+  },
+  {
+    accessorKey: "token_usage",
+    header: ({ column }) => (
+      <button
+        className="flex items-center gap-1 text-xs"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+      >
+        Tokens <ArrowUpDown className="h-3 w-3" />
+      </button>
+    ),
+    cell: ({ row }) => (
+      <span className="text-xs">{row.original.token_usage.toLocaleString()}</span>
+    ),
+  },
+  {
+    accessorKey: "cost_usd",
+    header: ({ column }) => (
+      <button
+        className="flex items-center gap-1 text-xs"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+      >
+        Cost <ArrowUpDown className="h-3 w-3" />
+      </button>
+    ),
+    cell: ({ row }) => (
+      <span className="text-xs font-medium">${row.original.cost_usd.toFixed(4)}</span>
+    ),
+  },
+  {
+    accessorKey: "created_at",
+    header: ({ column }) => (
+      <button
+        className="flex items-center gap-1 text-xs"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+      >
+        Date <ArrowUpDown className="h-3 w-3" />
+      </button>
+    ),
+    cell: ({ row }) => (
+      <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+        {new Date(row.original.created_at).toLocaleString()}
+      </span>
+    ),
+  },
+];
 
 export function UsagePage() {
   const [queries, setQueries] = useState<Array<{
@@ -30,6 +113,8 @@ export function UsagePage() {
     created_at: string;
   }>>([]);
   const [rateLimits, setRateLimits] = useState<RateLimitStatus | null>(null);
+  const [sorting, setSorting] = useState<SortingState>([{ id: "created_at", desc: true }]);
+  const [globalFilter, setGlobalFilter] = useState("");
 
   useEffect(() => {
     getQueryHistory().then(setQueries);
@@ -91,6 +176,19 @@ export function UsagePage() {
     byModel[m].tokens += q.token_usage;
     byModel[m].cost += q.cost_usd;
   }
+
+  const table = useReactTable({
+    data: queries,
+    columns,
+    state: { sorting, globalFilter },
+    onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 10 } },
+  });
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -243,46 +341,89 @@ export function UsagePage() {
 
       <Separator />
 
-      {/* Query history */}
+      {/* Query history — @tanstack/react-table */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Clock className="h-4 w-4" /> Query History
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Clock className="h-4 w-4" /> Query History
+            </CardTitle>
+            <input
+              placeholder="Search queries..."
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="h-8 w-48 rounded-md border bg-background px-3 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="max-h-[500px]">
-            {queries.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-12">
-                No queries yet.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {queries.map((q) => (
-                  <div key={q.id} className="rounded-lg border p-3 space-y-1.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium">{q.question}</p>
-                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                        {formatDate(q.created_at)}
-                      </span>
-                    </div>
-                    {q.answer && (
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {q.answer}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                        {q.model.split("/").pop()}
-                      </Badge>
-                      <span>{q.token_usage.toLocaleString()} tokens</span>
-                      <span>${q.cost_usd.toFixed(4)}</span>
-                    </div>
-                  </div>
-                ))}
+          {queries.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-12">
+              No queries yet.
+            </p>
+          ) : (
+            <>
+              <div className="rounded-md border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    {table.getHeaderGroups().map((hg) => (
+                      <tr key={hg.id} className="border-b bg-muted/50">
+                        {hg.headers.map((header) => (
+                          <th key={header.id} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(header.column.columnDef.header, header.getContext())}
+                          </th>
+                        ))}
+                      </tr>
+                    ))}
+                  </thead>
+                  <tbody>
+                    {table.getRowModel().rows.map((row) => (
+                      <tr key={row.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                        {row.getVisibleCells().map((cell) => (
+                          <td key={cell.id} className="px-3 py-2">
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </ScrollArea>
+
+              {/* Pagination */}
+              <div className="flex items-center justify-between mt-3">
+                <span className="text-xs text-muted-foreground">
+                  {table.getFilteredRowModel().rows.length} result(s)
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7"
+                    disabled={!table.getCanPreviousPage()}
+                    onClick={() => table.previousPage()}
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Page {table.getState().pagination.pageIndex + 1} of{" "}
+                    {table.getPageCount()}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7"
+                    disabled={!table.getCanNextPage()}
+                    onClick={() => table.nextPage()}
+                  >
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
