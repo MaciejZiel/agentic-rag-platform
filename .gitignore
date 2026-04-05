@@ -25,5 +25,6 @@ uploads/
 .coverage
 htmlcov/
 .mypy_cache/
+*.db
 
 .claude/
