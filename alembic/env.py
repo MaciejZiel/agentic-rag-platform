@@ -19,6 +19,7 @@ from app.models.notification import Notification  # noqa: F401
 from app.models.assistant import Assistant  # noqa: F401
 from app.models.workflow import Workflow  # noqa: F401
 from app.models.share_link import ShareLink  # noqa: F401
+from app.models.audit_log import AuditLog  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.sync_database_url)
