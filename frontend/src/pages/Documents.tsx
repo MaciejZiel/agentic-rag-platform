@@ -27,6 +27,7 @@ import { DocumentDetail } from "@/components/DocumentDetail";
 import { ChunkPreviewDialog } from "@/components/ChunkPreviewDialog";
 import { ShareDialog } from "@/components/ShareDialog";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { DocumentListSkeleton } from "@/components/PageSkeletons";
 import { toast } from "sonner";
 
 const statusConfig = {
@@ -53,6 +54,7 @@ export function DocumentsPage() {
   const [indexingIds, setIndexingIds] = useState<Set<string>>(new Set());
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
@@ -121,6 +123,7 @@ export function DocumentsPage() {
     const data = await listDocuments();
     setDocs(data.documents);
     setTotal(data.total);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -369,7 +372,9 @@ export function DocumentsPage() {
           );
         })}
 
-        {docs.length === 0 && (
+        {loading && <DocumentListSkeleton />}
+
+        {!loading && docs.length === 0 && (
           <p className="text-center text-sm text-muted-foreground py-12">
             No documents yet. Upload one above.
           </p>
