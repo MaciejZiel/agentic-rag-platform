@@ -39,6 +39,7 @@ const ComparePage = lazy(() => import("@/pages/Compare").then(m => ({ default: m
 const WorkflowsPage = lazy(() => import("@/pages/Workflows").then(m => ({ default: m.WorkflowsPage })));
 import { LoginPage } from "@/pages/Login";
 import { TwoFactorVerify } from "@/pages/TwoFactorVerify";
+import { NotFoundPage } from "@/pages/NotFound";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationBell } from "@/components/NotificationBell";
 import { CommandPalette } from "@/components/CommandPalette";
@@ -49,6 +50,7 @@ import {
 import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AnimatedPage } from "@/components/AnimatedPage";
+import { SkipLink } from "@/components/SkipLink";
 import { Toaster } from "sonner";
 import {
   type AuthUser,
@@ -168,6 +170,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <SkipLink />
       <Toaster position="top-right" richColors closeButton />
       <CommandPalette />
       <KeyboardShortcuts />
@@ -177,7 +180,7 @@ export default function App() {
       <div className="flex h-screen">
         {/* Mobile header */}
         <div className="fixed top-0 left-0 right-0 z-40 flex items-center gap-3 border-b bg-background px-4 py-3 md:hidden">
-          <button onClick={() => setSidebarOpen(true)}>
+          <button onClick={() => setSidebarOpen(true)} aria-label="Open navigation menu">
             <Menu className="h-5 w-5" />
           </button>
           <h1 className="text-sm font-semibold">Cortex</h1>
@@ -191,7 +194,7 @@ export default function App() {
           />
         )}
 
-        <aside className={`
+        <aside aria-label="Main navigation" className={`
           fixed inset-y-0 left-0 z-50 w-56 border-r bg-sidebar flex flex-col
           transform transition-transform md:relative md:translate-x-0
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
@@ -207,6 +210,7 @@ export default function App() {
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
+              aria-label="Close navigation menu"
               className="md:hidden text-muted-foreground hover:text-foreground"
             >
               <X className="h-4 w-4" />
@@ -222,7 +226,7 @@ export default function App() {
                 <kbd className="text-[10px] border rounded px-1 bg-background">⌘K</kbd>
               </button>
             </div>
-          <nav className="flex-1 p-2 space-y-1">
+          <nav className="flex-1 p-2 space-y-1" role="navigation" aria-label="Primary">
             {navItems.map(({ to, icon: Icon, label }) => (
               <NavLink
                 key={to}
@@ -260,6 +264,7 @@ export default function App() {
                 size="icon"
                 className="h-7 w-7"
                 onClick={handleLogout}
+                aria-label="Sign out"
               >
                 <LogOut className="h-3 w-3" />
               </Button>
@@ -276,7 +281,7 @@ export default function App() {
           </div>
         </aside>
 
-        <main className="flex-1 overflow-auto pt-14 md:pt-0">
+        <main id="main-content" role="main" className="flex-1 overflow-auto pt-14 md:pt-0">
           <ErrorBoundary>
           <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
           <Routes>
@@ -296,6 +301,7 @@ export default function App() {
               path="/settings"
               element={<AnimatedPage><SettingsPage user={user} onUserUpdate={setUser} /></AnimatedPage>}
             />
+            <Route path="*" element={<AnimatedPage><NotFoundPage /></AnimatedPage>} />
           </Routes>
           </Suspense>
           </ErrorBoundary>
