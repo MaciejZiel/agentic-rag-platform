@@ -402,6 +402,24 @@ export async function getStatsTimeseries(days = 30): Promise<DashboardTimeseries
   return res.json();
 }
 
+// --- Rate Limits ---
+
+export interface RateLimitStatus {
+  queries_used: number;
+  queries_limit: number;
+  tokens_used: number;
+  tokens_limit: number;
+  extractions_used: number;
+  extractions_limit: number;
+  window_minutes: number;
+  resets_at: string;
+}
+
+export async function getRateLimits(): Promise<RateLimitStatus> {
+  const res = await authFetch(`${BASE}/stats/rate-limits`);
+  return res.json();
+}
+
 // --- Collections ---
 
 export interface CollectionItem {
