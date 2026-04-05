@@ -7,6 +7,13 @@ import {
   LayoutDashboard,
   CreditCard,
   BarChart3,
+  FolderOpen,
+  Terminal,
+  Bot,
+  ShieldCheck,
+  GitCompare,
+  Workflow,
+  Search,
   Settings,
   LogOut,
   User,
@@ -20,9 +27,18 @@ import { ExtractPage } from "@/pages/Extract";
 import { UsagePage } from "@/pages/Usage";
 import { SettingsPage } from "@/pages/Settings";
 import { SubscriptionsPage } from "@/pages/Subscriptions";
+import { CollectionsPage } from "@/pages/Collections";
+import { PlaygroundPage } from "@/pages/Playground";
+import { AssistantsPage } from "@/pages/Assistants";
+import { AdminPage } from "@/pages/Admin";
+import { ComparePage } from "@/pages/Compare";
+import { WorkflowsPage } from "@/pages/Workflows";
 import { LoginPage } from "@/pages/Login";
 import { TwoFactorVerify } from "@/pages/TwoFactorVerify";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { NotificationBell } from "@/components/NotificationBell";
+import { CommandPalette } from "@/components/CommandPalette";
+import { Toaster } from "sonner";
 import {
   type AuthUser,
   authGetMe,
@@ -37,8 +53,14 @@ const navItems = [
   { to: "/documents", icon: FileText, label: "Documents" },
   { to: "/chat", icon: MessageSquare, label: "Chat" },
   { to: "/extract", icon: Braces, label: "Extract" },
+  { to: "/collections", icon: FolderOpen, label: "Collections" },
   { to: "/usage", icon: BarChart3, label: "Usage" },
+  { to: "/playground", icon: Terminal, label: "Playground" },
+  { to: "/assistants", icon: Bot, label: "Assistants" },
   { to: "/subscriptions", icon: CreditCard, label: "Plans" },
+  { to: "/compare", icon: GitCompare, label: "Compare" },
+  { to: "/workflows", icon: Workflow, label: "Workflows" },
+  { to: "/admin", icon: ShieldCheck, label: "Admin" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
@@ -130,16 +152,28 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <Toaster position="top-right" richColors closeButton />
+      <CommandPalette />
       <div className="flex h-screen">
         <aside className="w-56 border-r bg-sidebar flex flex-col">
           <div className="p-4 border-b">
             <h1 className="text-base font-semibold tracking-tight">
-              Agentic RAG
+              Cortex
             </h1>
             <p className="text-xs text-muted-foreground">
               Document Intelligence
             </p>
           </div>
+          <div className="px-3 pt-2 pb-1">
+              <button
+                onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
+                className="w-full flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
+              >
+                <Search className="h-3 w-3" />
+                <span className="flex-1 text-left">Search...</span>
+                <kbd className="text-[10px] border rounded px-1 bg-background">⌘K</kbd>
+              </button>
+            </div>
           <nav className="flex-1 p-2 space-y-1">
             {navItems.map(({ to, icon: Icon, label }) => (
               <NavLink
@@ -183,9 +217,12 @@ export default function App() {
             </div>
             <div className="flex items-center justify-between px-1">
               <span className="text-[10px] text-muted-foreground">
-                RAG + OpenRouter
+                Cortex AI
               </span>
-              <ThemeToggle />
+              <div className="flex items-center gap-1">
+                <NotificationBell />
+                <ThemeToggle />
+              </div>
             </div>
           </div>
         </aside>
@@ -196,8 +233,14 @@ export default function App() {
             <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/extract" element={<ExtractPage />} />
+            <Route path="/collections" element={<CollectionsPage />} />
             <Route path="/usage" element={<UsagePage />} />
+            <Route path="/playground" element={<PlaygroundPage />} />
+            <Route path="/assistants" element={<AssistantsPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
+            <Route path="/compare" element={<ComparePage />} />
+            <Route path="/workflows" element={<WorkflowsPage />} />
+            <Route path="/admin" element={<AdminPage />} />
             <Route
               path="/settings"
               element={<SettingsPage user={user} onUserUpdate={setUser} />}
