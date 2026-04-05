@@ -38,6 +38,10 @@ import { TwoFactorVerify } from "@/pages/TwoFactorVerify";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationBell } from "@/components/NotificationBell";
 import { CommandPalette } from "@/components/CommandPalette";
+import {
+  OnboardingWizard,
+  isOnboardingComplete,
+} from "@/components/OnboardingWizard";
 import { Toaster } from "sonner";
 import {
   type AuthUser,
@@ -68,6 +72,7 @@ export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [needs2FA, setNeeds2FA] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   // On mount: check if we have a valid token
   useEffect(() => {
@@ -88,6 +93,7 @@ export default function App() {
           }
         }
         setUser(u);
+        if (!isOnboardingComplete()) setShowOnboarding(true);
         setLoading(false);
       })
       .catch(() => {
@@ -105,6 +111,7 @@ export default function App() {
           setUser(u);
         } else {
           setUser(u);
+          if (!isOnboardingComplete()) setShowOnboarding(true);
         }
       })
       .catch(() => {
@@ -116,6 +123,7 @@ export default function App() {
   function handle2FAVerified() {
     setNeeds2FA(false);
     sessionStorage.setItem("2fa_verified", "true");
+    if (!isOnboardingComplete()) setShowOnboarding(true);
   }
 
   function handleLogout() {
@@ -154,6 +162,9 @@ export default function App() {
     <BrowserRouter>
       <Toaster position="top-right" richColors closeButton />
       <CommandPalette />
+      {showOnboarding && (
+        <OnboardingWizard onComplete={() => setShowOnboarding(false)} />
+      )}
       <div className="flex h-screen">
         <aside className="w-56 border-r bg-sidebar flex flex-col">
           <div className="p-4 border-b">
