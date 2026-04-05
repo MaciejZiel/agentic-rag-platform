@@ -206,7 +206,7 @@ export function LoginPage({ onLogin }: Props) {
               <Sparkles className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight">Agentic RAG</h1>
+              <h1 className="text-xl font-bold tracking-tight">Cortex</h1>
               <p className="text-xs text-muted-foreground">
                 Document Intelligence Platform
               </p>
@@ -747,7 +747,7 @@ export function LoginPage({ onLogin }: Props) {
           </Card>
 
           <p className="text-center text-[10px] text-muted-foreground">
-            Powered by OpenRouter + Qdrant + PostgreSQL
+            Powered by Cortex AI
           </p>
         </div>
       </div>

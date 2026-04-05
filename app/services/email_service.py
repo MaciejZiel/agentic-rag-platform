@@ -19,7 +19,7 @@ def _build_html(code: str, name: str) -> str:
     <tr><td align="center">
       <table width="420" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
         <tr><td style="background:#09090b;padding:24px 32px;text-align:center;">
-          <span style="color:#ffffff;font-size:18px;font-weight:600;letter-spacing:-0.3px;">Agentic RAG</span>
+          <span style="color:#ffffff;font-size:18px;font-weight:600;letter-spacing:-0.3px;">Cortex</span>
         </td></tr>
         <tr><td style="padding:32px;">
           <p style="margin:0 0 8px;font-size:15px;color:#09090b;">Hi {name},</p>
@@ -34,7 +34,7 @@ def _build_html(code: str, name: str) -> str:
         </td></tr>
         <tr><td style="padding:16px 32px;border-top:1px solid #f4f4f5;">
           <p style="margin:0;font-size:11px;color:#a1a1aa;text-align:center;">
-            Agentic RAG — Document Intelligence Platform
+            Cortex — Document Intelligence Platform
           </p>
         </td></tr>
       </table>
