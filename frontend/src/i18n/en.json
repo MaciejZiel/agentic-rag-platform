@@ -1,0 +1,76 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "retry": "Retry",
+    "search": "Search...",
+    "noResults": "No results found",
+    "error": "An error occurred",
+    "success": "Success"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "documents": "Documents",
+    "chat": "Chat",
+    "extract": "Extract",
+    "collections": "Collections",
+    "usage": "Usage",
+    "playground": "Playground",
+    "assistants": "Assistants",
+    "plans": "Plans",
+    "compare": "Compare",
+    "workflows": "Workflows",
+    "admin": "Admin",
+    "settings": "Settings"
+  },
+  "auth": {
+    "login": "Sign in",
+    "register": "Create account",
+    "logout": "Sign out",
+    "email": "Email",
+    "password": "Password",
+    "fullName": "Full name",
+    "forgotPassword": "Forgot password?",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "verifyEmail": "Verify your email",
+    "verificationCode": "Verification code",
+    "twoFactor": "Two-factor authentication",
+    "enterCode": "Enter the 6-digit code from your authenticator app"
+  },
+  "documents": {
+    "upload": "Upload Document",
+    "index": "Index",
+    "preview": "Preview Chunks",
+    "share": "Share",
+    "delete": "Delete Document",
+    "deleteConfirm": "Are you sure you want to delete this document? This action cannot be undone.",
+    "processing": "Processing...",
+    "noDocuments": "No documents uploaded yet"
+  },
+  "chat": {
+    "placeholder": "Ask a question about your documents...",
+    "send": "Send",
+    "newConversation": "New Conversation",
+    "history": "Conversation History",
+    "deleteConversation": "Delete this conversation?",
+    "noMessages": "Start a conversation by asking a question"
+  },
+  "errors": {
+    "network": "Unable to reach the server. Check your internet connection.",
+    "server": "Something went wrong on our end. Please try again later.",
+    "notFound": "The page you're looking for doesn't exist.",
+    "unauthorized": "You need to sign in to access this page.",
+    "forbidden": "You don't have permission to access this resource."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "totalDocuments": "Total Documents",
+    "indexedDocuments": "Indexed",
+    "totalQueries": "Queries",
+    "totalCost": "Total Cost"
+  }
+}

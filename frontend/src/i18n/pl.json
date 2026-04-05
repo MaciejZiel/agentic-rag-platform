@@ -1,0 +1,76 @@
+{
+  "common": {
+    "loading": "Wczytywanie...",
+    "save": "Zapisz",
+    "cancel": "Anuluj",
+    "delete": "Usun",
+    "confirm": "Potwierdz",
+    "retry": "Ponow",
+    "search": "Szukaj...",
+    "noResults": "Brak wynikow",
+    "error": "Wystapil blad",
+    "success": "Sukces"
+  },
+  "nav": {
+    "dashboard": "Panel",
+    "documents": "Dokumenty",
+    "chat": "Czat",
+    "extract": "Ekstrakcja",
+    "collections": "Kolekcje",
+    "usage": "Uzycie",
+    "playground": "Playground",
+    "assistants": "Asystenci",
+    "plans": "Plany",
+    "compare": "Porownaj",
+    "workflows": "Przeplywy",
+    "admin": "Admin",
+    "settings": "Ustawienia"
+  },
+  "auth": {
+    "login": "Zaloguj sie",
+    "register": "Utworz konto",
+    "logout": "Wyloguj sie",
+    "email": "Email",
+    "password": "Haslo",
+    "fullName": "Imie i nazwisko",
+    "forgotPassword": "Zapomnialesz hasla?",
+    "noAccount": "Nie masz konta?",
+    "hasAccount": "Masz juz konto?",
+    "verifyEmail": "Zweryfikuj email",
+    "verificationCode": "Kod weryfikacyjny",
+    "twoFactor": "Uwierzytelnianie dwuskladnikowe",
+    "enterCode": "Wpisz 6-cyfrowy kod z aplikacji uwierzytelniajacj"
+  },
+  "documents": {
+    "upload": "Wyslij dokument",
+    "index": "Indeksuj",
+    "preview": "Podglad chunkow",
+    "share": "Udostepnij",
+    "delete": "Usun dokument",
+    "deleteConfirm": "Czy na pewno chcesz usunac ten dokument? Tej operacji nie mozna cofnac.",
+    "processing": "Przetwarzanie...",
+    "noDocuments": "Nie wyslano jeszcze zadnych dokumentow"
+  },
+  "chat": {
+    "placeholder": "Zadaj pytanie o swoje dokumenty...",
+    "send": "Wyslij",
+    "newConversation": "Nowa rozmowa",
+    "history": "Historia rozmow",
+    "deleteConversation": "Usunac te rozmowe?",
+    "noMessages": "Rozpocznij rozmowe zadajac pytanie"
+  },
+  "errors": {
+    "network": "Nie mozna polaczyc sie z serwerem. Sprawdz polaczenie internetowe.",
+    "server": "Cos poszlo nie tak po naszej stronie. Sprobuj ponownie pozniej.",
+    "notFound": "Strona, ktorej szukasz, nie istnieje.",
+    "unauthorized": "Musisz sie zalogowac, aby uzyskac dostep do tej strony.",
+    "forbidden": "Nie masz uprawnien do tego zasobu."
+  },
+  "dashboard": {
+    "title": "Panel",
+    "totalDocuments": "Wszystkie dokumenty",
+    "indexedDocuments": "Zaindeksowane",
+    "totalQueries": "Zapytania",
+    "totalCost": "Calkowity koszt"
+  }
+}
