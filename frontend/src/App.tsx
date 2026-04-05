@@ -42,6 +42,7 @@ import {
   OnboardingWizard,
   isOnboardingComplete,
 } from "@/components/OnboardingWizard";
+import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
 import { Toaster } from "sonner";
 import {
   type AuthUser,
@@ -162,6 +163,7 @@ export default function App() {
     <BrowserRouter>
       <Toaster position="top-right" richColors closeButton />
       <CommandPalette />
+      <KeyboardShortcuts />
       {showOnboarding && (
         <OnboardingWizard onComplete={() => setShowOnboarding(false)} />
       )}
