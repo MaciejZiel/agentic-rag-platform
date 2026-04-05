@@ -771,6 +771,44 @@ export async function createTenant(name: string): Promise<TenantResponse> {
   return res.json();
 }
 
+// --- Conversations ---
+
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationDetail {
+  id: string;
+  title: string;
+  messages: Array<{
+    role: string;
+    content: string;
+    model: string | null;
+    token_usage: number;
+    created_at: string;
+  }>;
+}
+
+export async function listConversations(): Promise<{ conversations: ConversationSummary[]; total: number }> {
+  const res = await authFetch(`${BASE}/conversations?limit=50`);
+  if (!res.ok) return { conversations: [], total: 0 };
+  return res.json();
+}
+
+export async function getConversation(id: string): Promise<ConversationDetail> {
+  const res = await authFetch(`${BASE}/conversations/${id}`);
+  if (!res.ok) throw new Error("Failed to load conversation");
+  return res.json();
+}
+
+export async function deleteConversation(id: string): Promise<void> {
+  const res = await authFetch(`${BASE}/conversations/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete conversation");
+}
+
 // --- Query history ---
 
 export async function getQueryHistory(): Promise<Array<{

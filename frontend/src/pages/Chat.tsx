@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Send, Loader2, FileText, Sparkles, RotateCcw, GitBranch } from "lucide-react";
+import { Send, Loader2, FileText, Sparkles, RotateCcw, GitBranch, History, Trash2 } from "lucide-react";
 import Markdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 
@@ -10,9 +10,15 @@ import { Separator } from "@/components/ui/separator";
 import {
   type Document,
   type SourceCitation,
+  type ConversationSummary,
   listDocuments,
   askStream,
+  listConversations,
+  getConversation,
+  deleteConversation,
 } from "@/lib/api";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { toast } from "sonner";
 import { ModelSelector } from "@/components/ModelSelector";
 
 interface Message {
@@ -32,6 +38,9 @@ export function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [model, setModel] = useState("");
   const [conversationId, setConversationId] = useState<string | undefined>();
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [deleteConvId, setDeleteConvId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -39,6 +48,41 @@ export function ChatPage() {
       setDocs(d.documents.filter((doc) => doc.status === "indexed")),
     );
   }, []);
+
+  async function loadConversations() {
+    const data = await listConversations();
+    setConversations(data.conversations);
+  }
+
+  async function loadConversation(id: string) {
+    try {
+      const conv = await getConversation(id);
+      setMessages(
+        conv.messages.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
+      );
+      setConversationId(id);
+      setHistoryOpen(false);
+    } catch {
+      toast.error("Failed to load conversation");
+    }
+  }
+
+  async function handleDeleteConversation(id: string) {
+    try {
+      await deleteConversation(id);
+      setConversations((prev) => prev.filter((c) => c.id !== id));
+      if (conversationId === id) {
+        setMessages([]);
+        setConversationId(undefined);
+      }
+      toast.success("Conversation deleted");
+    } catch {
+      toast.error("Failed to delete conversation");
+    }
+  }
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -124,7 +168,53 @@ export function ChatPage() {
   const docNameMap = Object.fromEntries(docs.map((d) => [d.id, d.filename]));
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full">
+      {/* History sidebar */}
+      {historyOpen && (
+        <div className="w-64 border-r bg-muted/30 flex flex-col h-full shrink-0">
+          <div className="p-3 border-b">
+            <h3 className="text-sm font-medium">Conversation History</h3>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="p-2 space-y-1">
+              {conversations.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-8">
+                  No conversations yet
+                </p>
+              )}
+              {conversations.map((conv) => (
+                <div
+                  key={conv.id}
+                  className={`group flex items-center gap-2 rounded-md px-2.5 py-2 cursor-pointer transition-colors ${
+                    conversationId === conv.id
+                      ? "bg-primary/10 text-primary"
+                      : "hover:bg-muted"
+                  }`}
+                  onClick={() => loadConversation(conv.id)}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{conv.title}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {new Date(conv.updated_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <button
+                    className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteConvId(conv.id);
+                    }}
+                  >
+                    <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+
+      <div className="flex flex-col flex-1 min-w-0">
       {/* Header */}
       <div className="p-4 border-b">
         <div className="flex items-center justify-between">
@@ -132,6 +222,14 @@ export function ChatPage() {
             <Sparkles className="h-5 w-5" /> Chat with your documents
           </h2>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => { setHistoryOpen((o) => !o); if (!historyOpen) loadConversations(); }}
+            >
+              <History className="h-3 w-3 mr-1" /> History
+            </Button>
             {messages.length > 0 && (
               <Button
                 variant="outline"
@@ -279,6 +377,20 @@ export function ChatPage() {
           </Button>
         </div>
       </div>
+      </div>
+
+      <ConfirmDialog
+        open={deleteConvId !== null}
+        title="Delete conversation"
+        description="This conversation will be permanently deleted."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={() => {
+          if (deleteConvId) handleDeleteConversation(deleteConvId);
+          setDeleteConvId(null);
+        }}
+        onCancel={() => setDeleteConvId(null)}
+      />
     </div>
   );
 }
