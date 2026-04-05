@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Send, Loader2, FileText, Sparkles, RotateCcw } from "lucide-react";
+import { Send, Loader2, FileText, Sparkles, RotateCcw, GitBranch } from "lucide-react";
 import Markdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 
@@ -112,6 +112,13 @@ export function ChatPage() {
       else next.add(id);
       return next;
     });
+  }
+
+  function forkFromMessage(index: number) {
+    // Keep messages up to and including the selected one
+    setMessages((prev) => prev.slice(0, index + 1));
+    // Clear conversation id so next message starts a fresh server-side conversation
+    setConversationId(undefined);
   }
 
   const docNameMap = Object.fromEntries(docs.map((d) => [d.id, d.filename]));
@@ -227,6 +234,17 @@ export function ChatPage() {
                     ))}
                   </div>
                 </div>
+              )}
+
+              {/* Fork button for assistant messages */}
+              {msg.role === "assistant" && msg.content && !loading && i < messages.length - 1 && (
+                <button
+                  onClick={() => forkFromMessage(i)}
+                  className="mt-1 ml-1 flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <GitBranch className="h-3 w-3" />
+                  Fork from here
+                </button>
               )}
             </div>
           ))}
