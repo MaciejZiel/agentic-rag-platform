@@ -46,6 +46,7 @@ import {
 } from "@/components/OnboardingWizard";
 import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AnimatedPage } from "@/components/AnimatedPage";
 import { Toaster } from "sonner";
 import {
   type AuthUser,
@@ -276,21 +277,21 @@ export default function App() {
         <main className="flex-1 overflow-auto pt-14 md:pt-0">
           <ErrorBoundary>
           <Routes>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/documents" element={<DocumentsPage />} />
-            <Route path="/chat" element={<ChatPage />} />
-            <Route path="/extract" element={<ExtractPage />} />
-            <Route path="/collections" element={<CollectionsPage />} />
-            <Route path="/usage" element={<UsagePage />} />
-            <Route path="/playground" element={<PlaygroundPage />} />
-            <Route path="/assistants" element={<AssistantsPage />} />
-            <Route path="/subscriptions" element={<SubscriptionsPage />} />
-            <Route path="/compare" element={<ComparePage />} />
-            <Route path="/workflows" element={<WorkflowsPage />} />
-            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/" element={<AnimatedPage><DashboardPage /></AnimatedPage>} />
+            <Route path="/documents" element={<AnimatedPage><DocumentsPage /></AnimatedPage>} />
+            <Route path="/chat" element={<AnimatedPage><ChatPage /></AnimatedPage>} />
+            <Route path="/extract" element={<AnimatedPage><ExtractPage /></AnimatedPage>} />
+            <Route path="/collections" element={<AnimatedPage><CollectionsPage /></AnimatedPage>} />
+            <Route path="/usage" element={<AnimatedPage><UsagePage /></AnimatedPage>} />
+            <Route path="/playground" element={<AnimatedPage><PlaygroundPage /></AnimatedPage>} />
+            <Route path="/assistants" element={<AnimatedPage><AssistantsPage /></AnimatedPage>} />
+            <Route path="/subscriptions" element={<AnimatedPage><SubscriptionsPage /></AnimatedPage>} />
+            <Route path="/compare" element={<AnimatedPage><ComparePage /></AnimatedPage>} />
+            <Route path="/workflows" element={<AnimatedPage><WorkflowsPage /></AnimatedPage>} />
+            <Route path="/admin" element={<AnimatedPage><AdminPage /></AnimatedPage>} />
             <Route
               path="/settings"
-              element={<SettingsPage user={user} onUserUpdate={setUser} />}
+              element={<AnimatedPage><SettingsPage user={user} onUserUpdate={setUser} /></AnimatedPage>}
             />
           </Routes>
           </ErrorBoundary>

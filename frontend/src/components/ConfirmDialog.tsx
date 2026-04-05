@@ -1,6 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { AnimatedDialog } from "@/components/AnimatedDialog";
 
 interface Props {
   open: boolean;
@@ -21,14 +22,9 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: Props) {
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4"
-      onClick={onCancel}
-    >
-      <Card className="w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+    <AnimatedDialog open={open} onClose={onCancel}>
+      <Card className="w-full max-w-sm mx-auto" onClick={(e) => e.stopPropagation()}>
         <CardContent className="pt-6 space-y-4">
           <div className="flex items-start gap-3">
             {variant === "destructive" && (
@@ -58,6 +54,6 @@ export function ConfirmDialog({
           </div>
         </CardContent>
       </Card>
-    </div>
+    </AnimatedDialog>
   );
 }

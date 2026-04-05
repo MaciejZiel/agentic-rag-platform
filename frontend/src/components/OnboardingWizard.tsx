@@ -10,6 +10,7 @@ import {
   FileText,
   Sparkles,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -108,28 +109,38 @@ export function OnboardingWizard({ onComplete }: Props) {
             ))}
           </div>
 
-          {/* Step icon */}
-          <div className={`mx-auto w-16 h-16 rounded-2xl ${current.bg} flex items-center justify-center mb-6`}>
-            <Icon className={`h-8 w-8 ${current.color}`} />
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={step}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              {/* Step icon */}
+              <div className={`mx-auto w-16 h-16 rounded-2xl ${current.bg} flex items-center justify-center mb-6`}>
+                <Icon className={`h-8 w-8 ${current.color}`} />
+              </div>
 
-          {/* Step content */}
-          <div className="text-center space-y-3 mb-6">
-            <h3 className="text-xl font-semibold">
-              Step {step + 1}: {current.title}
-            </h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {current.description}
-            </p>
-          </div>
+              {/* Step content */}
+              <div className="text-center space-y-3 mb-6">
+                <h3 className="text-xl font-semibold">
+                  Step {step + 1}: {current.title}
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {current.description}
+                </p>
+              </div>
 
-          {/* Tip box */}
-          <div className="rounded-lg bg-muted/50 border px-4 py-3 mb-8">
-            <div className="flex items-start gap-2">
-              <FileText className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-              <p className="text-xs text-muted-foreground">{current.tip}</p>
-            </div>
-          </div>
+              {/* Tip box */}
+              <div className="rounded-lg bg-muted/50 border px-4 py-3 mb-8">
+                <div className="flex items-start gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <p className="text-xs text-muted-foreground">{current.tip}</p>
+                </div>
+              </div>
+            </motion.div>
+          </AnimatePresence>
 
           {/* Navigation */}
           <div className="flex items-center justify-between">

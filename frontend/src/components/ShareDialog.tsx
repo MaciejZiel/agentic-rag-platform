@@ -3,6 +3,7 @@ import { Link2, Copy, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { AnimatedDialog } from "@/components/AnimatedDialog";
 import { type ShareLinkOut, createShareLink } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -26,8 +27,6 @@ export function ShareDialog({ documentId, filename, open, onClose }: Props) {
   const [link, setLink] = useState<ShareLinkOut | null>(null);
   const [copied, setCopied] = useState(false);
   const [expiryHours, setExpiryHours] = useState(72);
-
-  if (!open) return null;
 
   async function handleCreate() {
     setLoading(true);
@@ -61,8 +60,8 @@ export function ShareDialog({ documentId, filename, open, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <AnimatedDialog open={open} onClose={handleClose}>
+      <Card className="w-full max-w-md mx-auto" onClick={(e) => e.stopPropagation()}>
         <CardContent className="pt-6 space-y-4">
           <div className="flex items-center gap-2">
             <Link2 className="h-5 w-5 text-primary" />
@@ -149,6 +148,6 @@ export function ShareDialog({ documentId, filename, open, onClose }: Props) {
           )}
         </CardContent>
       </Card>
-    </div>
+    </AnimatedDialog>
   );
 }
