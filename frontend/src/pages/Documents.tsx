@@ -26,6 +26,7 @@ import {
 import { DocumentDetail } from "@/components/DocumentDetail";
 import { ChunkPreviewDialog } from "@/components/ChunkPreviewDialog";
 import { ShareDialog } from "@/components/ShareDialog";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
 
 const statusConfig = {
@@ -56,6 +57,8 @@ export function DocumentsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
   const [shareDoc, setShareDoc] = useState<Document | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false);
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -244,7 +247,7 @@ export function DocumentsPage() {
           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleBatchIndex}>
             Index Selected
           </Button>
-          <Button size="sm" variant="outline" className="h-7 text-xs text-destructive" onClick={handleBatchDelete}>
+          <Button size="sm" variant="outline" className="h-7 text-xs text-destructive" onClick={() => setBatchDeleteConfirm(true)}>
             <Trash2 className="h-3 w-3 mr-1" /> Delete Selected
           </Button>
           <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSelectedIds(new Set())}>
@@ -353,7 +356,7 @@ export function DocumentsPage() {
                   size="sm"
                   variant="ghost"
                   className="text-destructive hover:text-destructive"
-                  onClick={(e) => { e.stopPropagation(); handleDelete(doc.id); }}
+                  onClick={(e) => { e.stopPropagation(); setDeleteTarget(doc.id); }}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -404,6 +407,32 @@ export function DocumentsPage() {
           onClose={() => setShareDoc(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete document"
+        description="This will permanently delete the document, its chunks, and embeddings. This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={() => {
+          if (deleteTarget) handleDelete(deleteTarget);
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={batchDeleteConfirm}
+        title={`Delete ${selectedIds.size} document(s)`}
+        description="This will permanently delete all selected documents. This action cannot be undone."
+        confirmLabel="Delete All"
+        variant="destructive"
+        onConfirm={() => {
+          setBatchDeleteConfirm(false);
+          handleBatchDelete();
+        }}
+        onCancel={() => setBatchDeleteConfirm(false)}
+      />
     </div>
   );
 }
