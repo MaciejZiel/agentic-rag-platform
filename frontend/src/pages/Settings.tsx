@@ -27,7 +27,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { type ModelInfo, type AuthUser, listModels } from "@/lib/api";
+import {
+  type ModelInfo,
+  type AuthUser,
+  listModels,
+  listWebhooks,
+  createWebhook,
+  deleteWebhook as apiDeleteWebhook,
+} from "@/lib/api";
+import { toast } from "sonner";
 import { TwoFactorSetup } from "@/components/TwoFactorSetup";
 
 interface Props {
@@ -62,16 +70,15 @@ export function SettingsPage({ user, onUserUpdate }: Props) {
   const [webhooks, setWebhooks] = useState<Array<{ id: string; url: string; event_type?: string }>>([]);
 
   useEffect(() => {
-    listModels().then((res) => {
-      setModels(res.models);
-      setDefaultModel(res.default);
-    });
-    fetch("/api/v1/webhooks")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setWebhooks(data);
+    listModels()
+      .then((res) => {
+        setModels(res.models);
+        setDefaultModel(res.default);
       })
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load models"));
+    listWebhooks()
+      .then(setWebhooks)
+      .catch(() => toast.error("Failed to load webhooks"));
   }, []);
 
   function handleCopyKey(prefix: string) {
@@ -94,22 +101,22 @@ export function SettingsPage({ user, onUserUpdate }: Props) {
   async function handleAddWebhook() {
     if (!webhookUrl.trim()) return;
     try {
-      const res = await fetch("/api/v1/webhooks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: webhookUrl, event_type: "*" }),
-      });
-      if (res.ok) {
-        const wh = await res.json();
-        setWebhooks((prev) => [...prev, wh]);
-        setWebhookUrl("");
-      }
-    } catch {}
+      const wh = await createWebhook(webhookUrl);
+      setWebhooks((prev) => [...prev, wh]);
+      setWebhookUrl("");
+      toast.success("Webhook added");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to add webhook");
+    }
   }
 
   async function handleDeleteWebhook(id: string) {
-    await fetch(`/api/v1/webhooks/${id}`, { method: "DELETE" });
-    setWebhooks((prev) => prev.filter((w) => w.id !== id));
+    try {
+      await apiDeleteWebhook(id);
+      setWebhooks((prev) => prev.filter((w) => w.id !== id));
+    } catch {
+      toast.error("Failed to delete webhook");
+    }
   }
 
   return (
