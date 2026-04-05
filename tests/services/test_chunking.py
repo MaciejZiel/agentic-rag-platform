@@ -1,6 +1,6 @@
 import pytest
 
-from app.utils.chunking import chunk_text, count_tokens
+from app.utils.chunking import ChunkStrategy, chunk_text, count_tokens
 
 
 def test_count_tokens():
@@ -46,3 +46,33 @@ def test_chunk_text_overlap():
         prev_tokens = set(chunks[i - 1]["content"].split()[-15:])
         curr_tokens = set(chunks[i]["content"].split()[:15])
         assert len(prev_tokens & curr_tokens) > 0
+
+
+def test_chunk_by_sentence():
+    text = "First sentence. Second sentence. Third sentence. Fourth sentence. Fifth sentence."
+    chunks = chunk_text(text, max_tokens=20, overlap_tokens=5, strategy=ChunkStrategy.SENTENCE)
+    assert len(chunks) >= 1
+    for chunk in chunks:
+        assert "content" in chunk
+        assert "token_count" in chunk
+        assert chunk["token_count"] > 0
+
+
+def test_chunk_by_paragraph():
+    text = "Paragraph one with content.\n\nParagraph two with content.\n\nParagraph three with content."
+    chunks = chunk_text(text, max_tokens=20, strategy=ChunkStrategy.PARAGRAPH)
+    assert len(chunks) >= 1
+    for chunk in chunks:
+        assert "content" in chunk
+        assert chunk["token_count"] > 0
+
+
+def test_chunk_strategy_enum():
+    assert ChunkStrategy.FIXED_SIZE == "fixed_size"
+    assert ChunkStrategy.SENTENCE == "sentence"
+    assert ChunkStrategy.PARAGRAPH == "paragraph"
+
+
+def test_empty_text():
+    chunks = chunk_text("", max_tokens=512)
+    assert len(chunks) <= 1
