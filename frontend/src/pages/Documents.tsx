@@ -8,6 +8,8 @@ import {
   Loader2,
   Clock,
   Trash2,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,6 +22,7 @@ import {
   deleteDocument,
 } from "@/lib/api";
 import { DocumentDetail } from "@/components/DocumentDetail";
+import { toast } from "sonner";
 
 const statusConfig = {
   uploaded: { icon: Clock, variant: "secondary" as const, label: "Uploaded" },
@@ -46,6 +49,64 @@ export function DocumentsPage() {
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAll() {
+    if (selectedIds.size === docs.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(docs.map((d) => d.id)));
+    }
+  }
+
+  async function handleBatchIndex() {
+    const toIndex = docs.filter(
+      (d) => selectedIds.has(d.id) && (d.status === "uploaded" || d.status === "failed"),
+    );
+    if (toIndex.length === 0) return;
+    for (const doc of toIndex) {
+      setIndexingIds((prev) => new Set(prev).add(doc.id));
+    }
+    let success = 0;
+    for (const doc of toIndex) {
+      try {
+        await indexDocument(doc.id);
+        success++;
+      } catch { /* continue */ }
+      setIndexingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(doc.id);
+        return next;
+      });
+    }
+    toast.success(`Indexed ${success}/${toIndex.length} documents`);
+    setSelectedIds(new Set());
+    await refresh();
+  }
+
+  async function handleBatchDelete() {
+    const toDelete = docs.filter((d) => selectedIds.has(d.id));
+    if (toDelete.length === 0) return;
+    let success = 0;
+    for (const doc of toDelete) {
+      try {
+        await deleteDocument(doc.id);
+        success++;
+      } catch { /* continue */ }
+    }
+    toast.success(`Deleted ${success}/${toDelete.length} documents`);
+    setSelectedIds(new Set());
+    await refresh();
+  }
 
   const refresh = useCallback(async () => {
     const data = await listDocuments();
@@ -64,9 +125,12 @@ export function DocumentsPage() {
       for (const file of files) {
         await uploadDocument(file);
       }
+      toast.success("Upload complete", { description: `${files.length} file(s) uploaded successfully.` });
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed");
+      const msg = e instanceof Error ? e.message : "Upload failed";
+      setError(msg);
+      toast.error("Upload failed", { description: msg });
     } finally {
       setUploading(false);
     }
@@ -75,9 +139,12 @@ export function DocumentsPage() {
   async function handleDelete(id: string) {
     try {
       await deleteDocument(id);
+      toast.success("Document deleted");
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed");
+      const msg = e instanceof Error ? e.message : "Delete failed";
+      setError(msg);
+      toast.error("Delete failed", { description: msg });
     }
   }
 
@@ -85,9 +152,12 @@ export function DocumentsPage() {
     setIndexingIds((prev) => new Set(prev).add(id));
     try {
       await indexDocument(id);
+      toast.success("Indexing complete", { description: "Document has been indexed with embeddings." });
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Indexing failed");
+      const msg = e instanceof Error ? e.message : "Indexing failed";
+      setError(msg);
+      toast.error("Indexing failed", { description: msg });
     } finally {
       setIndexingIds((prev) => {
         const next = new Set(prev);
@@ -158,7 +228,36 @@ export function DocumentsPage() {
         </div>
       )}
 
+      {/* Batch toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-2">
+          <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleBatchIndex}>
+            Index Selected
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 text-xs text-destructive" onClick={handleBatchDelete}>
+            <Trash2 className="h-3 w-3 mr-1" /> Delete Selected
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSelectedIds(new Set())}>
+            Clear
+          </Button>
+        </div>
+      )}
+
       {/* Document list */}
+      {docs.length > 1 && (
+        <button
+          className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
+          onClick={selectAll}
+        >
+          {selectedIds.size === docs.length ? (
+            <CheckSquare className="h-3.5 w-3.5" />
+          ) : (
+            <Square className="h-3.5 w-3.5" />
+          )}
+          Select all
+        </button>
+      )}
       <div className="space-y-3">
         {docs.map((doc) => {
           const cfg = statusConfig[doc.status];
@@ -166,8 +265,18 @@ export function DocumentsPage() {
           const isIndexing = indexingIds.has(doc.id);
 
           return (
-            <Card key={doc.id} className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setSelectedDoc(doc)}>
+            <Card key={doc.id} className={`cursor-pointer transition-colors ${selectedIds.has(doc.id) ? "border-primary" : "hover:border-primary/50"}`} onClick={() => setSelectedDoc(doc)}>
               <CardContent className="flex items-center gap-4 py-4">
+                <button
+                  className="shrink-0"
+                  onClick={(e) => { e.stopPropagation(); toggleSelect(doc.id); }}
+                >
+                  {selectedIds.has(doc.id) ? (
+                    <CheckSquare className="h-4 w-4 text-primary" />
+                  ) : (
+                    <Square className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </button>
                 <div className="rounded-lg bg-muted p-2.5">
                   <FileText className="h-5 w-5 text-muted-foreground" />
                 </div>
