@@ -85,6 +85,53 @@ async def get_document_chunks(
     ]
 
 
+@router.post("/{document_id}/preview-chunks")
+async def preview_chunks(
+    document_id: uuid.UUID,
+    request: IndexRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Preview how a document would be chunked without actually indexing it."""
+    from pathlib import Path as _Path
+
+    from app.utils.chunking import ChunkStrategy, chunk_text
+    from app.utils.text_extraction import extract_text
+
+    service = DocumentService(db)
+    doc_out = await service.get_document(document_id)
+
+    from app.repositories.document_repository import DocumentRepository
+    repo = DocumentRepository(db)
+    doc = await repo.get_by_id(document_id)
+    file_path = _Path(doc.file_path)
+
+    text = extract_text(file_path, doc.content_type)
+    req = request or IndexRequest()
+    strategy = ChunkStrategy(req.chunk_strategy)
+    chunks = chunk_text(
+        text,
+        max_tokens=req.max_tokens,
+        overlap_tokens=req.overlap_tokens,
+        strategy=strategy,
+    )
+    return {
+        "document_id": str(document_id),
+        "filename": doc_out.filename,
+        "strategy": req.chunk_strategy,
+        "max_tokens": req.max_tokens,
+        "overlap_tokens": req.overlap_tokens,
+        "total_chunks": len(chunks),
+        "chunks": [
+            {
+                "chunk_index": c["chunk_index"],
+                "content": c["content"],
+                "token_count": c["token_count"],
+            }
+            for c in chunks
+        ],
+    }
+
+
 @router.delete("/{document_id}", status_code=204)
 async def delete_document(
     document_id: uuid.UUID,

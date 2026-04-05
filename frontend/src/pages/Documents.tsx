@@ -10,6 +10,7 @@ import {
   Trash2,
   CheckSquare,
   Square,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,6 +23,7 @@ import {
   deleteDocument,
 } from "@/lib/api";
 import { DocumentDetail } from "@/components/DocumentDetail";
+import { ChunkPreviewDialog } from "@/components/ChunkPreviewDialog";
 import { toast } from "sonner";
 
 const statusConfig = {
@@ -50,6 +52,7 @@ export function DocumentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -148,10 +151,13 @@ export function DocumentsPage() {
     }
   }
 
-  async function handleIndex(id: string) {
+  async function handleIndex(
+    id: string,
+    options?: { chunk_strategy?: string; max_tokens?: number; overlap_tokens?: number },
+  ) {
     setIndexingIds((prev) => new Set(prev).add(id));
     try {
-      await indexDocument(id);
+      await indexDocument(id, options);
       toast.success("Indexing complete", { description: "Document has been indexed with embeddings." });
       await refresh();
     } catch (e) {
@@ -305,18 +311,28 @@ export function DocumentsPage() {
                 </Badge>
 
                 {(doc.status === "uploaded" || doc.status === "failed") && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isIndexing}
-                    onClick={(e) => { e.stopPropagation(); handleIndex(doc.id); }}
-                  >
-                    {isIndexing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Index"
-                    )}
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-muted-foreground"
+                      onClick={(e) => { e.stopPropagation(); setPreviewDoc(doc); }}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isIndexing}
+                      onClick={(e) => { e.stopPropagation(); handleIndex(doc.id); }}
+                    >
+                      {isIndexing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Index"
+                      )}
+                    </Button>
+                  </>
                 )}
 
                 <Button
@@ -348,6 +364,23 @@ export function DocumentsPage() {
         open={selectedDoc !== null}
         onClose={() => setSelectedDoc(null)}
       />
+
+      {previewDoc && (
+        <ChunkPreviewDialog
+          documentId={previewDoc.id}
+          filename={previewDoc.filename}
+          open={true}
+          onClose={() => setPreviewDoc(null)}
+          onIndex={async (strategy, maxTokens, overlapTokens) => {
+            setPreviewDoc(null);
+            await handleIndex(previewDoc.id, {
+              chunk_strategy: strategy,
+              max_tokens: maxTokens,
+              overlap_tokens: overlapTokens,
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
