@@ -98,9 +98,13 @@ class DocumentService:
         logger.info("document_uploaded", document_id=str(document.id), filename=file.filename)
         return DocumentOut.model_validate(document)
 
-    async def get_document(self, document_id: uuid.UUID) -> DocumentOut:
+    async def get_document(
+        self, document_id: uuid.UUID, tenant_id: uuid.UUID | None = None,
+    ) -> DocumentOut:
         doc = await self.repo.get_by_id(document_id)
         if not doc:
+            raise NotFoundError("Document", document_id)
+        if tenant_id and doc.tenant_id != tenant_id:
             raise NotFoundError("Document", document_id)
         return DocumentOut.model_validate(doc)
 
@@ -116,9 +120,12 @@ class DocumentService:
 
     async def delete_document(
         self, document_id: uuid.UUID, vector_store: "VectorStoreClient",
+        tenant_id: uuid.UUID | None = None,
     ) -> None:
         doc = await self.repo.get_by_id(document_id)
         if not doc:
+            raise NotFoundError("Document", document_id)
+        if tenant_id and doc.tenant_id != tenant_id:
             raise NotFoundError("Document", document_id)
 
         # Clean up vectors from Qdrant
@@ -141,12 +148,15 @@ class DocumentService:
         chunk_strategy: str = "fixed_size",
         max_tokens: int = 512,
         overlap_tokens: int = 50,
+        tenant_id: uuid.UUID | None = None,
     ) -> DocumentOut:
         from app.services.indexing_service import IndexingService
         from app.utils.chunking import ChunkStrategy
 
         doc = await self.repo.get_by_id(document_id)
         if not doc:
+            raise NotFoundError("Document", document_id)
+        if tenant_id and doc.tenant_id != tenant_id:
             raise NotFoundError("Document", document_id)
 
         if doc.status not in (DocumentStatus.UPLOADED, DocumentStatus.FAILED):
