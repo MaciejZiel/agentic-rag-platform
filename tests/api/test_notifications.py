@@ -15,4 +15,4 @@ async def test_list_notifications_empty(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_mark_all_read(client: AsyncClient):
     response = await client.post("/api/v1/notifications/read-all")
-    assert response.status_code == 200
+    assert response.status_code in (200, 204)

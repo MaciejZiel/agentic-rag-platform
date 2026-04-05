@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
 import {
   FileText,
@@ -22,19 +22,21 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DashboardPage } from "@/pages/Dashboard";
-import { DocumentsPage } from "@/pages/Documents";
-import { ChatPage } from "@/pages/Chat";
-import { ExtractPage } from "@/pages/Extract";
-import { UsagePage } from "@/pages/Usage";
-import { SettingsPage } from "@/pages/Settings";
-import { SubscriptionsPage } from "@/pages/Subscriptions";
-import { CollectionsPage } from "@/pages/Collections";
-import { PlaygroundPage } from "@/pages/Playground";
-import { AssistantsPage } from "@/pages/Assistants";
-import { AdminPage } from "@/pages/Admin";
-import { ComparePage } from "@/pages/Compare";
-import { WorkflowsPage } from "@/pages/Workflows";
+
+// Lazy-loaded pages for code splitting
+const DashboardPage = lazy(() => import("@/pages/Dashboard").then(m => ({ default: m.DashboardPage })));
+const DocumentsPage = lazy(() => import("@/pages/Documents").then(m => ({ default: m.DocumentsPage })));
+const ChatPage = lazy(() => import("@/pages/Chat").then(m => ({ default: m.ChatPage })));
+const ExtractPage = lazy(() => import("@/pages/Extract").then(m => ({ default: m.ExtractPage })));
+const UsagePage = lazy(() => import("@/pages/Usage").then(m => ({ default: m.UsagePage })));
+const SettingsPage = lazy(() => import("@/pages/Settings").then(m => ({ default: m.SettingsPage })));
+const SubscriptionsPage = lazy(() => import("@/pages/Subscriptions").then(m => ({ default: m.SubscriptionsPage })));
+const CollectionsPage = lazy(() => import("@/pages/Collections").then(m => ({ default: m.CollectionsPage })));
+const PlaygroundPage = lazy(() => import("@/pages/Playground").then(m => ({ default: m.PlaygroundPage })));
+const AssistantsPage = lazy(() => import("@/pages/Assistants").then(m => ({ default: m.AssistantsPage })));
+const AdminPage = lazy(() => import("@/pages/Admin").then(m => ({ default: m.AdminPage })));
+const ComparePage = lazy(() => import("@/pages/Compare").then(m => ({ default: m.ComparePage })));
+const WorkflowsPage = lazy(() => import("@/pages/Workflows").then(m => ({ default: m.WorkflowsPage })));
 import { LoginPage } from "@/pages/Login";
 import { TwoFactorVerify } from "@/pages/TwoFactorVerify";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -276,6 +278,7 @@ export default function App() {
 
         <main className="flex-1 overflow-auto pt-14 md:pt-0">
           <ErrorBoundary>
+          <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
           <Routes>
             <Route path="/" element={<AnimatedPage><DashboardPage /></AnimatedPage>} />
             <Route path="/documents" element={<AnimatedPage><DocumentsPage /></AnimatedPage>} />
@@ -294,6 +297,7 @@ export default function App() {
               element={<AnimatedPage><SettingsPage user={user} onUserUpdate={setUser} /></AnimatedPage>}
             />
           </Routes>
+          </Suspense>
           </ErrorBoundary>
         </main>
       </div>

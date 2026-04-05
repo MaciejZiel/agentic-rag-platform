@@ -8,9 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.clients.openai_client import LLMClient
 from app.clients.qdrant_client import VectorStoreClient
+from app.core.auth import require_tenant
 from app.core.database import Base, get_db
 from app.core.dependencies import get_llm_client, get_vector_store
 from app.main import create_app
+from app.models.tenant import Tenant
 
 TEST_DB_URL = "sqlite+aiosqlite:///./test.db"
 
@@ -61,8 +63,16 @@ def mock_vector_store() -> VectorStoreClient:
 
 
 @pytest.fixture
+def mock_tenant(db_session: AsyncSession) -> Tenant:
+    """Create a mock tenant for auth-protected endpoints."""
+    tenant = Tenant(name="Test Tenant", is_active=True)
+    return tenant
+
+
+@pytest.fixture
 async def client(
-    db_session: AsyncSession, mock_llm: LLMClient, mock_vector_store: VectorStoreClient
+    db_session: AsyncSession, mock_llm: LLMClient, mock_vector_store: VectorStoreClient,
+    mock_tenant: Tenant,
 ) -> AsyncGenerator[AsyncClient, None]:
     app = create_app()
 
@@ -72,6 +82,7 @@ async def client(
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_llm_client] = lambda: mock_llm
     app.dependency_overrides[get_vector_store] = lambda: mock_vector_store
+    app.dependency_overrides[require_tenant] = lambda: mock_tenant
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
