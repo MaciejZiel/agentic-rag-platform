@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, Loader2, FileText, Sparkles, RotateCcw } from "lucide-react";
+import Markdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
@@ -191,13 +192,19 @@ export function ChatPage() {
                 }`}
               >
                 <div
-                  className={`rounded-lg px-4 py-2.5 max-w-[85%] text-sm whitespace-pre-wrap ${
+                  className={`rounded-lg px-4 py-2.5 max-w-[85%] text-sm ${
                     msg.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
+                      ? "bg-primary text-primary-foreground whitespace-pre-wrap"
+                      : "bg-muted prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-pre:my-2 prose-headings:my-2 prose-code:text-xs prose-code:bg-background/50 prose-code:px-1 prose-code:rounded"
                   }`}
                 >
-                  {msg.content || (
+                  {msg.content ? (
+                    msg.role === "user" ? (
+                      msg.content
+                    ) : (
+                      <Markdown>{msg.content}</Markdown>
+                    )
+                  ) : (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   )}
                 </div>
