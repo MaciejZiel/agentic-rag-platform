@@ -38,6 +38,7 @@ import {
   authResendCode,
   setTokens,
 } from "@/lib/api";
+import { loginSchema, registerSchema } from "@/lib/schemas";
 
 interface Props {
   onLogin: () => void;
@@ -84,8 +85,12 @@ export function LoginPage({ onLogin }: Props) {
 
   // ─── Login ───
   async function handleLogin() {
-    if (!loginEmail.trim() || !loginPassword.trim()) return;
     setError(null);
+    const parsed = loginSchema.safeParse({ email: loginEmail, password: loginPassword });
+    if (!parsed.success) {
+      setError(parsed.error.errors[0].message);
+      return;
+    }
     setLoading(true);
 
     try {
@@ -102,14 +107,20 @@ export function LoginPage({ onLogin }: Props) {
   // ─── Register ───
   async function handleRegister() {
     const name = accountType === "personal" ? fullName : orgName;
-    if (!name.trim() || !registerEmail.trim() || !registerPassword.trim()) return;
 
     if (registerPassword !== confirmPassword) {
       setError("Passwords don't match.");
       return;
     }
-    if (registerPassword.length < 8) {
-      setError("Password must be at least 8 characters.");
+
+    const parsed = registerSchema.safeParse({
+      email: registerEmail,
+      password: registerPassword,
+      fullName: name,
+      accountType,
+    });
+    if (!parsed.success) {
+      setError(parsed.error.errors[0].message);
       return;
     }
 
