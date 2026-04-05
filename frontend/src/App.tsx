@@ -18,6 +18,8 @@ import {
   LogOut,
   User,
   Loader2,
+  Menu,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DashboardPage } from "@/pages/Dashboard";
@@ -75,6 +77,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [needs2FA, setNeeds2FA] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // On mount: check if we have a valid token
   useEffect(() => {
@@ -169,14 +172,42 @@ export default function App() {
         <OnboardingWizard onComplete={() => setShowOnboarding(false)} />
       )}
       <div className="flex h-screen">
-        <aside className="w-56 border-r bg-sidebar flex flex-col">
-          <div className="p-4 border-b">
-            <h1 className="text-base font-semibold tracking-tight">
-              Cortex
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              Document Intelligence
-            </p>
+        {/* Mobile header */}
+        <div className="fixed top-0 left-0 right-0 z-40 flex items-center gap-3 border-b bg-background px-4 py-3 md:hidden">
+          <button onClick={() => setSidebarOpen(true)}>
+            <Menu className="h-5 w-5" />
+          </button>
+          <h1 className="text-sm font-semibold">Cortex</h1>
+        </div>
+
+        {/* Mobile overlay */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm md:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        <aside className={`
+          fixed inset-y-0 left-0 z-50 w-56 border-r bg-sidebar flex flex-col
+          transform transition-transform md:relative md:translate-x-0
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+        `}>
+          <div className="p-4 border-b flex items-center justify-between">
+            <div>
+              <h1 className="text-base font-semibold tracking-tight">
+                Cortex
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                Document Intelligence
+              </p>
+            </div>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="md:hidden text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
           <div className="px-3 pt-2 pb-1">
               <button
@@ -194,6 +225,7 @@ export default function App() {
                 key={to}
                 to={to}
                 end={to === "/"}
+                onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
                   `flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
                     isActive
@@ -241,7 +273,7 @@ export default function App() {
           </div>
         </aside>
 
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto pt-14 md:pt-0">
           <ErrorBoundary>
           <Routes>
             <Route path="/" element={<DashboardPage />} />
