@@ -15,7 +15,9 @@ from app.core.logging import setup_logging, get_logger
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.core.rate_limit import limiter
+from app.middleware.rate_limit_headers import RateLimitHeadersMiddleware
 from app.middleware.request_logging import RequestLoggingMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
 
 
 @asynccontextmanager
@@ -46,6 +48,8 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RateLimitHeadersMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
     app.state.limiter = limiter
     app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
