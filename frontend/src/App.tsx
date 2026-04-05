@@ -43,6 +43,7 @@ import {
   isOnboardingComplete,
 } from "@/components/OnboardingWizard";
 import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Toaster } from "sonner";
 import {
   type AuthUser,
@@ -241,6 +242,7 @@ export default function App() {
         </aside>
 
         <main className="flex-1 overflow-auto">
+          <ErrorBoundary>
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/documents" element={<DocumentsPage />} />
@@ -259,6 +261,7 @@ export default function App() {
               element={<SettingsPage user={user} onUserUpdate={setUser} />}
             />
           </Routes>
+          </ErrorBoundary>
         </main>
       </div>
     </BrowserRouter>
