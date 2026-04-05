@@ -130,6 +130,14 @@ export function DocumentsPage() {
     refresh();
   }, [refresh]);
 
+  // Auto-refresh when documents are processing
+  useEffect(() => {
+    const hasProcessing = docs.some((d) => d.status === "processing") || indexingIds.size > 0;
+    if (!hasProcessing) return;
+    const interval = setInterval(refresh, 3000);
+    return () => clearInterval(interval);
+  }, [docs, indexingIds, refresh]);
+
   async function handleFiles(files: FileList | File[]) {
     setUploading(true);
     setError(null);
