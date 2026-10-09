@@ -100,3 +100,47 @@ async def test_ask_stream_no_sources(client: AsyncClient):
     assert '"type": "sources"' in body
     assert '"type": "done"' in body
     assert "No relevant sources found" in body
+
+
+@pytest.mark.asyncio
+async def test_ask_with_unpriced_model_reports_null_cost(
+    client: AsyncClient, mock_vector_store: VectorStoreClient,
+):
+    upload = await client.post(
+        "/api/v1/documents/upload",
+        files={"file": ("pricing.txt", io.BytesIO(b"Pricing test content " + uuid.uuid4().bytes), "text/plain")},
+    )
+    doc_id = upload.json()["id"]
+
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from app.models.document import DocumentChunk
+    from tests.conftest import TEST_DB_URL
+
+    engine = create_async_engine(TEST_DB_URL)
+    async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+        chunk = DocumentChunk(
+            document_id=uuid.UUID(doc_id), chunk_index=0, content="Pricing.", token_count=2,
+        )
+        session.add(chunk)
+        await session.commit()
+        chunk_id = str(chunk.id)
+    await engine.dispose()
+
+    mock_vector_store.search.return_value = [{
+        "id": chunk_id, "score": 0.5,
+        "payload": {"document_id": doc_id, "chunk_index": 0, "chunk_id": chunk_id},
+    }]
+    response = await client.post(
+        "/api/v1/qa/ask",
+        json={"question": f"price {uuid.uuid4()}?", "model": "meta-llama/llama-4-maverick"},
+    )
+    assert response.status_code == 200
+    assert response.json()["cost_usd"] is None
+    assert response.json()["token_usage"] == 150
+
+    history = (await client.get("/api/v1/qa/history")).json()
+    assert history[0]["cost_usd"] is None
+    stats = (await client.get("/api/v1/stats")).json()
+    assert stats["total_tokens_used"] >= 150
+    assert isinstance(stats["total_cost_usd"], float)
