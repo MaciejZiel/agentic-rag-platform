@@ -11,6 +11,7 @@ import {
   Filter,
   Zap,
   ArrowRight,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -110,16 +111,29 @@ export function WorkflowsPage() {
   const [edges, setEdges] = useState<WorkflowEdge[]>([]);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [connecting, setConnecting] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const data = await listWorkflows();
-    setWorkflows(data.workflows);
+    try {
+      const data = await listWorkflows();
+      setWorkflows(data.workflows);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   function selectWorkflow(w: WorkflowItem) {
     setSelected(w);
