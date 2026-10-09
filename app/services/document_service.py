@@ -40,6 +40,8 @@ class DocumentService:
 
         file_id = uuid.uuid4()
         file_path = settings.upload_dir / f"{file_id}{ext}"
+        # Don't rely on the app lifespan having created the directory.
+        file_path.parent.mkdir(parents=True, exist_ok=True)
         max_bytes = settings.max_upload_size_mb * 1024 * 1024
 
         # Stream to disk in chunks — never hold the full file in memory
