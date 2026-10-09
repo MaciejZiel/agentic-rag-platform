@@ -36,3 +36,12 @@ async def test_create_assistant_missing_prompt(client: AsyncClient):
         json={"name": "Bad Bot"},
     )
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_assistant_rejects_out_of_range_temperature(client: AsyncClient):
+    response = await client.post(
+        "/api/v1/assistants",
+        json={"name": "Hot Bot", "system_prompt": "Be creative.", "temperature": 3.5},
+    )
+    assert response.status_code == 422

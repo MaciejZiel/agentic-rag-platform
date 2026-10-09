@@ -27,9 +27,11 @@ def _is_private_ip(host: str) -> bool:
 
 
 class WebhookCreate(BaseModel):
-    url: str
-    event_type: str = Field(default="*", description="Event type filter or * for all")
-    secret: str | None = None
+    url: str = Field(max_length=2048)
+    event_type: str = Field(
+        default="*", max_length=64, description="Event type filter or * for all"
+    )
+    secret: str | None = Field(default=None, max_length=256)
 
     @field_validator("url")
     @classmethod

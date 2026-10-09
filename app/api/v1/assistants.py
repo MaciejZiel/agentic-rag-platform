@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,21 +14,21 @@ router = APIRouter()
 
 
 class AssistantCreate(BaseModel):
-    name: str
-    description: str | None = None
-    system_prompt: str
-    model: str = "openai/gpt-4o-mini"
-    temperature: float = 0.7
-    icon: str = "bot"
+    name: str = Field(min_length=1, max_length=256)
+    description: str | None = Field(default=None, max_length=2000)
+    system_prompt: str = Field(min_length=1, max_length=10000)
+    model: str = Field(default="openai/gpt-4o-mini", max_length=128)
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+    icon: str = Field(default="bot", max_length=8)
 
 
 class AssistantUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
-    system_prompt: str | None = None
-    model: str | None = None
-    temperature: float | None = None
-    icon: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=256)
+    description: str | None = Field(default=None, max_length=2000)
+    system_prompt: str | None = Field(default=None, min_length=1, max_length=10000)
+    model: str | None = Field(default=None, max_length=128)
+    temperature: float | None = Field(default=None, ge=0.0, le=2.0)
+    icon: str | None = Field(default=None, max_length=8)
 
 
 class AssistantOut(BaseModel):
