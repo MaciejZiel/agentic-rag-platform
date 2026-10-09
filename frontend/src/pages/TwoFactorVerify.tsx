@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { Shield, ArrowRight, KeyRound, Mail } from "lucide-react";
-import { authVerify2FA } from "@/lib/api";
+import { Shield, ArrowRight, KeyRound, LifeBuoy } from "lucide-react";
+import { authVerify2FA, setTokens } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,12 +15,13 @@ import {
 } from "@/components/ui/input-otp";
 
 interface Props {
+  challengeToken: string;
   email?: string;
   onVerified: () => void;
   onCancel: () => void;
 }
 
-export function TwoFactorVerify({ email, onVerified, onCancel }: Props) {
+export function TwoFactorVerify({ challengeToken, email, onVerified, onCancel }: Props) {
   usePageTitle("Two-Factor Authentication");
   const [method, setMethod] = useState<"totp" | "backup">("totp");
   const [otpValue, setOtpValue] = useState("");
@@ -40,7 +41,8 @@ export function TwoFactorVerify({ email, onVerified, onCancel }: Props) {
     }
 
     try {
-      await authVerify2FA(email ?? "", code);
+      const tokens = await authVerify2FA(challengeToken, code);
+      setTokens(tokens.access_token, tokens.refresh_token);
       onVerified();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Verification failed. Please try again.");
@@ -63,7 +65,7 @@ export function TwoFactorVerify({ email, onVerified, onCancel }: Props) {
             <p className="text-sm text-muted-foreground mt-1">
               {method === "totp"
                 ? "Enter the 6-digit code from your authenticator app."
-                : "Enter one of your backup codes."}
+                : "Enter one of your recovery codes."}
             </p>
           </div>
         </div>
@@ -96,8 +98,8 @@ export function TwoFactorVerify({ email, onVerified, onCancel }: Props) {
                   setError(null);
                 }}
               >
-                <Mail className="h-3 w-3 inline mr-1 -mt-0.5" />
-                Backup Code
+                <LifeBuoy className="h-3 w-3 inline mr-1 -mt-0.5" />
+                Recovery Code
               </button>
             </div>
           </CardHeader>
@@ -131,7 +133,7 @@ export function TwoFactorVerify({ email, onVerified, onCancel }: Props) {
               </div>
             ) : (
               <div className="space-y-2">
-                <Label htmlFor="backup-code">Backup Code</Label>
+                <Label htmlFor="backup-code">Recovery Code</Label>
                 <Input
                   id="backup-code"
                   value={backupCode}
@@ -141,7 +143,7 @@ export function TwoFactorVerify({ email, onVerified, onCancel }: Props) {
                   className="font-mono text-center tracking-widest"
                 />
                 <p className="text-[10px] text-muted-foreground">
-                  Each backup code can only be used once.
+                  Each recovery code can only be used once.
                 </p>
               </div>
             )}
