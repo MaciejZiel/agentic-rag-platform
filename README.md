@@ -96,7 +96,7 @@ python -m pytest tests/ --cov=app       # 56 tests
 cd frontend && npm test                 # 39 tests (Vitest)
 ```
 
-The backend tests drive the FastAPI app through `httpx.AsyncClient` with the LLM client and the vector store replaced by mocks, so they need no API keys or running services. Line coverage of `app/` is about 61%; the upload/index/ask flow, auth validation, chunking and text extraction are covered, while the Celery tasks and several admin endpoints are not yet.
+The backend tests drive the FastAPI app through `httpx.AsyncClient` with the LLM client and the vector store replaced by mocks, so they need no API keys or running services. Line coverage of `app/` is about 60% (as reported in CI); the upload/index/ask flow, auth validation, chunking and text extraction are covered, while the Celery tasks and several admin endpoints are not yet.
 
 CI (GitHub Actions) runs the backend tests, applies every Alembic migration to a real PostgreSQL 16 and runs `alembic check` to fail on drift between models and migrations, then type-checks, builds and tests the frontend.
 
