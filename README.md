@@ -96,7 +96,7 @@ python -m pytest tests/ --cov=app       # 99 tests
 cd frontend && npm test                 # 49 tests (Vitest)
 ```
 
-The backend tests drive the FastAPI app through `httpx.AsyncClient` with the LLM client and the vector store replaced by mocks, so they need no API keys or running services. Line coverage of `app/` is about 77%. Besides the upload/index/ask flow, chunking and text extraction, the suite covers tenant isolation end to end (`tests/api/test_tenant_isolation.py` authenticates two tenants with real API keys and checks that neither can read, search, modify or count the other's data), the 2FA flows, the indexing worker and the pricing table.
+The backend tests drive the FastAPI app through `httpx.AsyncClient` with the LLM client and the vector store replaced by mocks, so they need no API keys or running services. Line coverage of `app/` is about 70% (as reported in CI). Besides the upload/index/ask flow, chunking and text extraction, the suite covers tenant isolation end to end (`tests/api/test_tenant_isolation.py` authenticates two tenants with real API keys and checks that neither can read, search, modify or count the other's data), the 2FA flows, the indexing worker and the pricing table.
 
 CI (GitHub Actions) runs the backend tests, applies every Alembic migration to a real PostgreSQL 16 and runs `alembic check` to fail on drift between models and migrations, then type-checks, builds and tests the frontend.
 
