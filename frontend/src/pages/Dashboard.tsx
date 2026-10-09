@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   FileText,
   MessageSquare,
@@ -92,6 +93,7 @@ function formatChartDate(dateStr: string): string {
 }
 
 export function DashboardPage() {
+  usePageTitle("Dashboard");
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [timeseries, setTimeseries] = useState<DashboardTimeseries | null>(null);
 

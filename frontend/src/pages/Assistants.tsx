@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Bot,
   Plus,
@@ -39,6 +40,7 @@ const ICON_MAP: Record<string, string> = {
 };
 
 export function AssistantsPage() {
+  usePageTitle("Assistants");
   const [assistants, setAssistants] = useState<AssistantItem[]>([]);
   const [selected, setSelected] = useState<AssistantItem | null>(null);
   const [showCreate, setShowCreate] = useState(false);

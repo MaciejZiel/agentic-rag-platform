@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   LogIn,
   UserPlus,
@@ -48,6 +49,7 @@ type AccountType = "personal" | "organization";
 type RegisterStep = "type" | "details" | "verify-email" | "done";
 
 export function LoginPage({ onLogin }: Props) {
+  usePageTitle("Sign In");
   const [tab, setTab] = useState<"login" | "register">("login");
 
   // Login state

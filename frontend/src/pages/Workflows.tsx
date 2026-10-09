@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Workflow as WorkflowIcon,
   Plus,
@@ -102,6 +103,7 @@ function EdgeLine({ nodes, edge }: { nodes: WorkflowNode[]; edge: WorkflowEdge }
 }
 
 export function WorkflowsPage() {
+  usePageTitle("Workflows");
   const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
   const [selected, setSelected] = useState<WorkflowItem | null>(null);
   const [nodes, setNodes] = useState<WorkflowNode[]>([]);

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Upload,
   FileText,
@@ -48,6 +49,7 @@ function formatDate(iso: string) {
 }
 
 export function DocumentsPage() {
+  usePageTitle("Documents");
   const [docs, setDocs] = useState<Document[]>([]);
   const [total, setTotal] = useState(0);
   const [uploading, setUploading] = useState(false);

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   ShieldCheck,
   Users,
@@ -31,6 +32,7 @@ function StatMini({ label, value, icon: Icon }: { label: string; value: string |
 }
 
 export function AdminPage() {
+  usePageTitle("Admin");
   const [data, setData] = useState<AdminOverview | null>(null);
 
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { GitCompare, Loader2, FileText, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +16,7 @@ import { ModelSelector } from "@/components/ModelSelector";
 import { toast } from "sonner";
 
 export function ComparePage() {
+  usePageTitle("Compare");
   const [docs, setDocs] = useState<Document[]>([]);
   const [docA, setDocA] = useState<string>("");
   const [docB, setDocB] = useState<string>("");

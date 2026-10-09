@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { CreditCard, Check, Zap, Building2, Rocket, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -75,6 +76,7 @@ const plans = [
 ];
 
 export function SubscriptionsPage() {
+  usePageTitle("Subscriptions");
   const [selectedPlan, setSelectedPlan] = useState("Free");
 
   return (

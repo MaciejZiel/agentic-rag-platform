@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   BarChart3,
   MessageSquare,
@@ -103,6 +104,7 @@ const columns: ColumnDef<QueryRow>[] = [
 ];
 
 export function UsagePage() {
+  usePageTitle("Usage");
   const [queries, setQueries] = useState<Array<{
     id: string;
     question: string;

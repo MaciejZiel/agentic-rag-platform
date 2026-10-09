@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   FolderOpen,
   Plus,
@@ -37,6 +38,7 @@ const COLORS = [
 ];
 
 export function CollectionsPage() {
+  usePageTitle("Collections");
   const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [docs, setDocs] = useState<Document[]>([]);
   const [showCreate, setShowCreate] = useState(false);

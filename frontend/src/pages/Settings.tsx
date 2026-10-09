@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Settings,
   Key,
@@ -44,6 +45,7 @@ interface Props {
 }
 
 export function SettingsPage({ user, onUserUpdate }: Props) {
+  usePageTitle("Settings");
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [defaultModel, setDefaultModel] = useState("");
   const [chunkStrategy, setChunkStrategy] = useState("fixed_size");
