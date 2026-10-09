@@ -289,4 +289,4 @@ cd frontend && npm run build
 
 ## License
 
-MIT
+Released under the [MIT License](LICENSE).
