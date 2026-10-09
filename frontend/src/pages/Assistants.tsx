@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { formatDate } from "@/lib/date";
 import {
   Bot,
   Plus,
@@ -331,7 +332,7 @@ export function AssistantsPage() {
                   <div>
                     <p className="text-xs text-muted-foreground">Created</p>
                     <span className="text-xs">
-                      {new Date(selected.created_at).toLocaleDateString()}
+                      {formatDate(selected.created_at)}
                     </span>
                   </div>
                 </div>

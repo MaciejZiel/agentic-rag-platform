@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { formatChartDate, formatRelativeTime } from "@/lib/date";
 import {
   FileText,
   MessageSquare,
@@ -63,19 +64,6 @@ function StatCard({
   );
 }
 
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
 const STATUS_COLORS: Record<string, string> = {
   indexed: "hsl(142, 71%, 45%)",
   uploaded: "hsl(217, 91%, 60%)",
@@ -85,11 +73,6 @@ const STATUS_COLORS: Record<string, string> = {
 
 function shortModelName(model: string): string {
   return model.split("/").pop() ?? model;
-}
-
-function formatChartDate(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 export function DashboardPage() {
@@ -123,7 +106,7 @@ export function DashboardPage() {
   const dailyData = timeseries
     ? timeseries.daily.slice(-14).map((d) => ({
         ...d,
-        label: formatChartDate(d.date),
+        label: formatChartDate(`${d.date}T00:00:00`),
       }))
     : [];
 
@@ -418,7 +401,7 @@ export function DashboardPage() {
                       </div>
                     </div>
                     <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                      {formatDate(q.created_at)}
+                      {formatRelativeTime(q.created_at)}
                     </span>
                   </div>
                 ))}

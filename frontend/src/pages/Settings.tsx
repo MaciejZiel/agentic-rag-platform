@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { formatDate } from "@/lib/date";
 import {
   Settings,
   Key,
@@ -62,7 +63,7 @@ export function SettingsPage({ user, onUserUpdate }: Props) {
 
   // API key management
   const [apiKeys] = useState<Array<{ id: string; prefix: string; label: string; created: string }>>([
-    { id: "1", prefix: "rag_••••••••", label: "Default Key", created: user.created_at.split("T")[0] },
+    { id: "1", prefix: "rag_••••••••", label: "Default Key", created: formatDate(user.created_at) },
   ]);
   const [showKey, setShowKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
