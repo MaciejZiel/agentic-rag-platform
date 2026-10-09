@@ -14,7 +14,10 @@ class ConversationRepository:
     async def create(self, conversation: Conversation) -> Conversation:
         self.db.add(conversation)
         await self.db.flush()
+        # Load the (empty) messages collection eagerly: touching an unloaded
+        # relationship later would trigger a lazy load, which AsyncSession forbids.
         await self.db.refresh(conversation)
+        await self.db.refresh(conversation, attribute_names=["messages"])
         return conversation
 
     async def get_by_id(self, conversation_id: uuid.UUID) -> Conversation | None:
