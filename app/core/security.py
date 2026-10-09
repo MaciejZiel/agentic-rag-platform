@@ -45,6 +45,25 @@ def create_refresh_token(user_id: uuid.UUID, tenant_id: uuid.UUID) -> str:
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
+TWO_FACTOR_CHALLENGE_MINUTES = 5
+
+
+def create_two_factor_challenge(user_id: uuid.UUID) -> str:
+    """Short-lived proof that the password step succeeded.
+
+    Its type is neither "access" nor "refresh", so it cannot be used to call
+    the API or to mint tokens; it is only accepted by /auth/2fa/verify.
+    """
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(user_id),
+        "type": "2fa_challenge",
+        "exp": now + timedelta(minutes=TWO_FACTOR_CHALLENGE_MINUTES),
+        "iat": now,
+    }
+    return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+
+
 def decode_token(token: str) -> dict:
     """Decode and validate a JWT token. Raises jwt.InvalidTokenError on failure."""
     return jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
