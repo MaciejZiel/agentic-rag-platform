@@ -1,5 +1,7 @@
 # Agentic RAG Platform
 
+[![CI](https://github.com/MaciejZiel/agentic-rag-platform/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/MaciejZiel/agentic-rag-platform/actions/workflows/ci.yml)
+
 AI-powered document intelligence platform with a full-featured React frontend. Upload documents, index them with vector embeddings, ask grounded questions with source citations, extract structured data, and manage everything through a modern web UI.
 
 ## Architecture
