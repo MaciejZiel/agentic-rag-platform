@@ -37,6 +37,14 @@ class IndexingService:
         if not doc:
             logger.error("document_not_found", document_id=str(document_id))
             return
+        tenant_id = doc.tenant_id
+        if tenant_id is None:
+            # Vectors are only ever searched within a tenant, so an unowned
+            # document could never be retrieved; refuse instead of indexing it.
+            await self.repo.update_status(
+                document_id, DocumentStatus.FAILED, error_message="Document has no owner tenant"
+            )
+            return
 
         try:
             await self.repo.update_status(document_id, DocumentStatus.PROCESSING)
@@ -44,7 +52,7 @@ class IndexingService:
             # Clean up previous indexing artifacts for idempotency
             deleted = await self.repo.delete_chunks_by_document(document_id)
             if deleted:
-                self.vector_store.delete_by_document_id(document_id)
+                self.vector_store.delete_by_document_id(document_id, tenant_id)
                 logger.info("previous_index_cleaned", document_id=str(document_id), chunks_deleted=deleted)
 
             file_path = Path(doc.file_path)
@@ -88,7 +96,7 @@ class IndexingService:
                     for c in batch
                 ]
 
-                self.vector_store.upsert_vectors(ids, embeddings, payloads)
+                self.vector_store.upsert_vectors(ids, embeddings, payloads, tenant_id=tenant_id)
 
                 for c in batch:
                     c.embedding_id = str(c.id)
@@ -103,7 +111,7 @@ class IndexingService:
 
             # Fire webhook
             webhook_svc = WebhookService(self.db)
-            await webhook_svc.fire_event("indexing.completed", {
+            await webhook_svc.fire_event("indexing.completed", tenant_id, {
                 "document_id": str(document_id),
                 "chunk_count": len(db_chunks),
             })
@@ -116,7 +124,7 @@ class IndexingService:
 
             try:
                 webhook_svc = WebhookService(self.db)
-                await webhook_svc.fire_event("indexing.failed", {
+                await webhook_svc.fire_event("indexing.failed", tenant_id, {
                     "document_id": str(document_id),
                     "error": str(e),
                 })

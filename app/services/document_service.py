@@ -30,7 +30,7 @@ class DocumentService:
         self.db = db
         self.repo = DocumentRepository(db)
 
-    async def upload(self, file: UploadFile, tenant_id: uuid.UUID | None = None) -> DocumentOut:
+    async def upload(self, file: UploadFile, tenant_id: uuid.UUID) -> DocumentOut:
         if not file.filename:
             raise ValidationError("Filename is required")
 
@@ -100,18 +100,25 @@ class DocumentService:
         logger.info("document_uploaded", document_id=str(document.id), filename=file.filename)
         return DocumentOut.model_validate(document)
 
-    async def get_document(
-        self, document_id: uuid.UUID, tenant_id: uuid.UUID | None = None,
-    ) -> DocumentOut:
+    async def get_owned(self, document_id: uuid.UUID, tenant_id: uuid.UUID) -> Document:
+        """Return the document if it belongs to ``tenant_id``, else raise 404.
+
+        A foreign document is reported exactly like a missing one so that
+        callers cannot probe other tenants' document ids.
+        """
         doc = await self.repo.get_by_id(document_id)
-        if not doc:
+        if doc is None or doc.tenant_id != tenant_id:
             raise NotFoundError("Document", document_id)
-        if tenant_id and doc.tenant_id != tenant_id:
-            raise NotFoundError("Document", document_id)
+        return doc
+
+    async def get_document(
+        self, document_id: uuid.UUID, tenant_id: uuid.UUID,
+    ) -> DocumentOut:
+        doc = await self.get_owned(document_id, tenant_id)
         return DocumentOut.model_validate(doc)
 
     async def list_documents(
-        self, skip: int = 0, limit: int = 20, tenant_id: uuid.UUID | None = None,
+        self, *, tenant_id: uuid.UUID, skip: int = 0, limit: int = 20,
     ) -> DocumentListOut:
         docs = await self.repo.list_all(skip=skip, limit=limit, tenant_id=tenant_id)
         total = await self.repo.count(tenant_id=tenant_id)
@@ -122,16 +129,12 @@ class DocumentService:
 
     async def delete_document(
         self, document_id: uuid.UUID, vector_store: "VectorStoreClient",
-        tenant_id: uuid.UUID | None = None,
+        tenant_id: uuid.UUID,
     ) -> None:
-        doc = await self.repo.get_by_id(document_id)
-        if not doc:
-            raise NotFoundError("Document", document_id)
-        if tenant_id and doc.tenant_id != tenant_id:
-            raise NotFoundError("Document", document_id)
+        doc = await self.get_owned(document_id, tenant_id)
 
         # Clean up vectors from Qdrant
-        vector_store.delete_by_document_id(document_id)
+        vector_store.delete_by_document_id(document_id, tenant_id)
 
         # Delete file from disk
         file_path = Path(doc.file_path)
@@ -150,16 +153,13 @@ class DocumentService:
         chunk_strategy: str = "fixed_size",
         max_tokens: int = 512,
         overlap_tokens: int = 50,
-        tenant_id: uuid.UUID | None = None,
+        *,
+        tenant_id: uuid.UUID,
     ) -> DocumentOut:
         from app.services.indexing_service import IndexingService
         from app.utils.chunking import ChunkStrategy
 
-        doc = await self.repo.get_by_id(document_id)
-        if not doc:
-            raise NotFoundError("Document", document_id)
-        if tenant_id and doc.tenant_id != tenant_id:
-            raise NotFoundError("Document", document_id)
+        doc = await self.get_owned(document_id, tenant_id)
 
         if doc.status not in (DocumentStatus.UPLOADED, DocumentStatus.FAILED):
             raise ValidationError(

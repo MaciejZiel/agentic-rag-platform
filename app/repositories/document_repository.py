@@ -89,8 +89,13 @@ class DocumentRepository:
         )
         return list(result.scalars().all())
 
-    async def get_chunks_by_ids(self, chunk_ids: list[uuid.UUID]) -> list[DocumentChunk]:
+    async def get_chunks_by_ids(
+        self, chunk_ids: list[uuid.UUID], tenant_id: uuid.UUID,
+    ) -> list[DocumentChunk]:
+        """Load chunks by id, restricted to documents owned by ``tenant_id``."""
         result = await self.db.execute(
-            select(DocumentChunk).where(DocumentChunk.id.in_(chunk_ids))
+            select(DocumentChunk)
+            .join(Document, Document.id == DocumentChunk.document_id)
+            .where(DocumentChunk.id.in_(chunk_ids), Document.tenant_id == tenant_id)
         )
         return list(result.scalars().all())
