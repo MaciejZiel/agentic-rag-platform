@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import cast, func, select, Date
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_tenant
@@ -124,8 +124,10 @@ async def get_stats_timeseries(
 ) -> DashboardTimeseries:
     """Aggregated stats for dashboard charts."""
     since = datetime.now(timezone.utc) - timedelta(days=days)
-    date_col = cast(ChatQuery.created_at, Date)
-    ext_date_col = cast(ExtractionRequest.created_at, Date)
+    # date() exists on both PostgreSQL and SQLite (used by the test suite); the rows
+    # come back as date objects or ISO strings, and both are keyed via str() below.
+    date_col = func.date(ChatQuery.created_at)
+    ext_date_col = func.date(ExtractionRequest.created_at)
 
     # Daily query stats
     query_daily = (await db.execute(
