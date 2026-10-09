@@ -50,7 +50,7 @@ A question goes through `QAService`: check the Redis cache (only for new convers
 |---|---|
 | API | Python 3.12+, FastAPI, Pydantic v2, SQLAlchemy 2 (async, asyncpg), Alembic |
 | Retrieval | Qdrant, OpenRouter through the `openai` SDK (`text-embedding-3-small`, chat model chosen per request), `tiktoken`, PyMuPDF, python-docx |
-| Infrastructure | PostgreSQL 16, Redis 7, Celery, Docker Compose, Kubernetes manifests in `k8s/` |
+| Infrastructure | PostgreSQL 16, Redis 7, Celery, Docker Compose, Kubernetes manifests in `k8s/`; the frontend is built by Cloudflare Pages through its GitHub integration |
 | Auth & security | PyJWT, bcrypt, API keys, slowapi rate limits, CSP and other security headers |
 | Observability | structlog, prometheus-fastapi-instrumentator, Prometheus, Grafana |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS v4, shadcn/ui, Recharts, i18next (EN/PL), Vitest |
