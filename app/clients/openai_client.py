@@ -7,20 +7,9 @@ from openai import AsyncOpenAI
 from app.core.config import settings
 from app.core.exceptions import ExternalServiceError
 from app.core.logging import get_logger
+from app.core.pricing import estimate_cost  # noqa: F401  (re-exported for callers)
 
 logger = get_logger(__name__)
-
-# Approximate pricing per 1M tokens (USD) — update as models change
-_PRICING: dict[str, dict[str, float]] = {
-    "openai/gpt-4o-mini": {"input": 0.15, "output": 0.60},
-    "openai/gpt-4o": {"input": 2.50, "output": 10.00},
-    "openai/text-embedding-3-small": {"input": 0.02, "output": 0.0},
-}
-
-
-def estimate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
-    pricing = _PRICING.get(model, {"input": 0.0, "output": 0.0})
-    return (prompt_tokens * pricing["input"] + completion_tokens * pricing["output"]) / 1_000_000
 
 
 class LLMClient:

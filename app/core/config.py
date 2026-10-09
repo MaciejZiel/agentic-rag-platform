@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     embedding_model: str = "openai/text-embedding-3-small"
     chat_model: str = "openai/gpt-4o-mini"
     embedding_dimensions: int = 1536
+    # Optional replacement for app/config/model_pricing.toml
+    model_pricing_file: Path | None = None
 
     # Upload
     upload_dir: Path = Path("./uploads")

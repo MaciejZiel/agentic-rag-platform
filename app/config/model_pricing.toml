@@ -1,0 +1,60 @@
+# Model prices used for cost estimates, in USD per 1M tokens.
+#
+# Rules for this table:
+# * Only list prices taken from the model provider's official pricing page,
+#   cited in `source` (checked 2026-10-10). The app calls models through
+#   OpenRouter, which bills these first-party models at the provider's price.
+# * A model without a verifiable official price gets an entry with no
+#   `input`/`output`; its cost is reported as null instead of a guess.
+# * Tiered prices: `long_context_threshold` is the prompt size (in tokens)
+#   above which `long_input`/`long_output` apply to the whole request.
+#
+# The file can be replaced at deploy time with MODEL_PRICING_FILE.
+
+["openai/gpt-4o-mini"]
+input = 0.15
+output = 0.60
+source = "https://developers.openai.com/api/docs/pricing"
+
+["openai/gpt-4o"]
+input = 2.50
+output = 10.00
+source = "https://developers.openai.com/api/docs/pricing"
+
+["openai/text-embedding-3-small"]
+input = 0.02
+output = 0.0
+source = "https://developers.openai.com/api/docs/pricing"
+
+["anthropic/claude-sonnet-4"]
+input = 3.00
+output = 15.00
+source = "https://platform.claude.com/docs/en/about-claude/pricing"
+
+["anthropic/claude-haiku-4.5"]
+input = 1.00
+output = 5.00
+source = "https://platform.claude.com/docs/en/about-claude/pricing"
+
+["google/gemini-2.5-flash"]
+# Text/image/video input price; audio input is billed higher.
+input = 0.30
+output = 2.50
+source = "https://ai.google.dev/gemini-api/docs/pricing"
+
+["google/gemini-2.5-pro"]
+input = 1.25
+output = 10.00
+long_context_threshold = 200_000
+long_input = 2.50
+long_output = 15.00
+source = "https://ai.google.dev/gemini-api/docs/pricing"
+
+["meta-llama/llama-4-maverick"]
+# Meta publishes no API price; it depends on the hosting provider.
+note = "no official provider price"
+
+["deepseek/deepseek-chat-v3-0324"]
+# DeepSeek's pricing page only lists its current models, not this snapshot.
+source = "https://api-docs.deepseek.com/quick_start/pricing"
+note = "version not listed on the official pricing page"

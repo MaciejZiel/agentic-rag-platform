@@ -34,7 +34,7 @@ class JobRepository:
         result: str | None = None,
         error_message: str | None = None,
         token_usage: int = 0,
-        cost_usd: float = 0.0,
+        cost_usd: float | None = None,
     ) -> None:
         job = await self.get_by_id(job_id)
         if job:

@@ -1,3 +1,4 @@
+import { formatCost } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { GitCompare, Loader2, FileText, ArrowRight } from "lucide-react";
@@ -142,7 +143,7 @@ export function ComparePage() {
                   {result.token_usage.toLocaleString()} tokens
                 </Badge>
                 <Badge variant="outline" className="text-xs">
-                  ${result.cost_usd.toFixed(4)}
+                  {formatCost(result.cost_usd)}
                 </Badge>
               </div>
             </div>

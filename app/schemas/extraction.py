@@ -20,4 +20,4 @@ class ExtractionResponse(BaseModel):
     extracted_data: dict[str, Any]
     model: str
     token_usage: int
-    cost_usd: float
+    cost_usd: float | None

@@ -1,3 +1,4 @@
+import { formatCost } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { formatDateTime, formatTime } from "@/lib/date";
@@ -35,7 +36,7 @@ interface QueryRow {
   answer: string | null;
   model: string;
   token_usage: number;
-  cost_usd: number;
+  cost_usd: number | null;
   created_at: string;
 }
 
@@ -83,7 +84,7 @@ const columns: ColumnDef<QueryRow>[] = [
       </button>
     ),
     cell: ({ row }) => (
-      <span className="text-xs font-medium">${row.original.cost_usd.toFixed(4)}</span>
+      <span className="text-xs font-medium">{formatCost(row.original.cost_usd)}</span>
     ),
   },
   {
@@ -112,7 +113,7 @@ export function UsagePage() {
     answer: string | null;
     model: string;
     token_usage: number;
-    cost_usd: number;
+    cost_usd: number | null;
     created_at: string;
   }>>([]);
   const [rateLimits, setRateLimits] = useState<RateLimitStatus | null>(null);
@@ -127,7 +128,8 @@ export function UsagePage() {
   }, []);
 
   const totalTokens = queries.reduce((s, q) => s + q.token_usage, 0);
-  const totalCost = queries.reduce((s, q) => s + q.cost_usd, 0);
+  // Unpriced models (null cost) are left out of the totals.
+  const totalCost = queries.reduce((s, q) => s + (q.cost_usd ?? 0), 0);
 
   function exportCSV() {
     const header = "Date,Question,Model,Tokens,Cost (USD)\n";
@@ -137,7 +139,7 @@ export function UsagePage() {
         `"${q.question.replace(/"/g, '""')}"`,
         q.model,
         q.token_usage,
-        q.cost_usd.toFixed(6),
+        q.cost_usd == null ? "" : q.cost_usd.toFixed(6),
       ].join(","),
     );
     const csv = header + rows.join("\n");
@@ -179,7 +181,7 @@ export function UsagePage() {
     if (!byModel[m]) byModel[m] = { count: 0, tokens: 0, cost: 0 };
     byModel[m].count++;
     byModel[m].tokens += q.token_usage;
-    byModel[m].cost += q.cost_usd;
+    byModel[m].cost += q.cost_usd ?? 0;
   }
 
   const table = useReactTable({

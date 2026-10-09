@@ -230,7 +230,7 @@ export interface AskResponse {
   sources: SourceCitation[];
   model: string;
   token_usage: number;
-  cost_usd: number;
+  cost_usd: number | null;
 }
 
 export interface ExtractionResponse {
@@ -238,7 +238,7 @@ export interface ExtractionResponse {
   extracted_data: Record<string, unknown>;
   model: string;
   token_usage: number;
-  cost_usd: number;
+  cost_usd: number | null;
 }
 
 export interface SSEEvent {
@@ -467,7 +467,7 @@ export interface PlatformStats {
     question: string;
     model: string;
     token_usage: number;
-    cost_usd: number;
+    cost_usd: number | null;
     created_at: string;
   }>;
 }
@@ -676,7 +676,7 @@ export interface CompareResponse {
   analysis: string;
   model: string;
   token_usage: number;
-  cost_usd: number;
+  cost_usd: number | null;
 }
 
 export async function compareDocuments(
@@ -953,7 +953,7 @@ export async function getQueryHistory(): Promise<Array<{
   answer: string | null;
   model: string;
   token_usage: number;
-  cost_usd: number;
+  cost_usd: number | null;
   created_at: string;
 }>> {
   const res = await authFetch(`${BASE}/qa/history`);

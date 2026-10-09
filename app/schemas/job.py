@@ -12,7 +12,7 @@ class JobOut(BaseModel):
     result: Any | None = None
     error_message: str | None = None
     token_usage: int
-    cost_usd: float
+    cost_usd: float | None = None
     created_at: datetime
     updated_at: datetime
 

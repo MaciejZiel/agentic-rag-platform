@@ -27,7 +27,7 @@ class CompareResponse(BaseModel):
     analysis: str
     model: str
     token_usage: int
-    cost_usd: float
+    cost_usd: float | None
 
 
 @router.post("", response_model=CompareResponse, summary="Compare documents")

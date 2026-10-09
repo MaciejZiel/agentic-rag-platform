@@ -1,3 +1,4 @@
+import { formatCost } from "@/lib/utils";
 import { useCallback, useEffect, useState } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
@@ -278,7 +279,7 @@ export function ExtractPage() {
                     <span>
                       Cost:{" "}
                       <span className="font-medium text-foreground">
-                        ${result.cost_usd.toFixed(4)}
+                        {formatCost(result.cost_usd)}
                       </span>
                     </span>
                   </div>
