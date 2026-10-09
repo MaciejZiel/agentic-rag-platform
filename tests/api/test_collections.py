@@ -28,3 +28,12 @@ async def test_create_collection(client: AsyncClient):
 async def test_create_collection_missing_name(client: AsyncClient):
     response = await client.post("/api/v1/collections", json={})
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_collection_rejects_invalid_color(client: AsyncClient):
+    response = await client.post(
+        "/api/v1/collections",
+        json={"name": "Bad colour", "color": "blue"},
+    )
+    assert response.status_code == 422

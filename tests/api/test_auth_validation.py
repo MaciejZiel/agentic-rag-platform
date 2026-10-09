@@ -57,3 +57,17 @@ async def test_verify_email_wrong_code_length(client: AsyncClient):
         json={"email": "test@example.com", "code": "12"},
     )
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_register_unknown_account_type(client: AsyncClient):
+    response = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "test@example.com",
+            "password": "validpassword123",
+            "full_name": "Test User",
+            "account_type": "enterprise",
+        },
+    )
+    assert response.status_code == 422

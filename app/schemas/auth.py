@@ -5,7 +5,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     full_name: str = Field(min_length=1, max_length=256)
-    account_type: str = "personal"  # "personal" | "organization"
+    account_type: str = Field(default="personal", pattern="^(personal|organization)$")
 
 
 class LoginRequest(BaseModel):

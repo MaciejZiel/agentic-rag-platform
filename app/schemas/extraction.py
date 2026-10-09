@@ -10,9 +10,9 @@ class ExtractionRequest(BaseModel):
         ..., description="JSON Schema describing the desired output structure"
     )
     instructions: str | None = Field(
-        default=None, description="Additional instructions for extraction"
+        default=None, max_length=5000, description="Additional instructions for extraction"
     )
-    model: str | None = Field(default=None, description="Override chat model")
+    model: str | None = Field(default=None, max_length=128, description="Override chat model")
 
 
 class ExtractionResponse(BaseModel):
