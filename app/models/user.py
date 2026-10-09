@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy import Boolean, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
@@ -8,6 +8,9 @@ from app.models.base import BaseModel
 
 class User(BaseModel):
     __tablename__ = "users"
+    __table_args__ = (
+        Index("ix_users_tenant_id", "tenant_id"),
+    )
 
     email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(128), nullable=False)

@@ -1,7 +1,7 @@
 import uuid
 from enum import StrEnum
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy import ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -17,6 +17,9 @@ class DocumentStatus(StrEnum):
 
 class Document(BaseModel):
     __tablename__ = "documents"
+    __table_args__ = (
+        Index("ix_documents_tenant_id", "tenant_id"),
+    )
 
     tenant_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=True
@@ -39,6 +42,9 @@ class Document(BaseModel):
 
 class DocumentChunk(BaseModel):
     __tablename__ = "document_chunks"
+    __table_args__ = (
+        Index("ix_document_chunks_document_id", "document_id"),
+    )
 
     document_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
