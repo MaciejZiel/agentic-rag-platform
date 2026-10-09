@@ -90,7 +90,7 @@ export function LoginPage({ onLogin }: Props) {
     setError(null);
     const parsed = loginSchema.safeParse({ email: loginEmail, password: loginPassword });
     if (!parsed.success) {
-      setError(parsed.error.errors[0].message);
+      setError(parsed.error.issues[0].message);
       return;
     }
     setLoading(true);
@@ -122,7 +122,7 @@ export function LoginPage({ onLogin }: Props) {
       accountType,
     });
     if (!parsed.success) {
-      setError(parsed.error.errors[0].message);
+      setError(parsed.error.issues[0].message);
       return;
     }
 
