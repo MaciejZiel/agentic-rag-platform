@@ -29,6 +29,11 @@ class ExternalServiceError(AppError):
         super().__init__(message=f"{service} error: {message}", status_code=502)
 
 
+class ServiceUnavailableError(AppError):
+    def __init__(self, message: str) -> None:
+        super().__init__(message=message, status_code=503)
+
+
 class FileTooLargeError(AppError):
     def __init__(self, max_size_mb: int) -> None:
         super().__init__(
