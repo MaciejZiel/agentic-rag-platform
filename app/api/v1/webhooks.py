@@ -2,9 +2,9 @@ import uuid
 from ipaddress import ip_address
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_tenant
@@ -27,9 +27,11 @@ def _is_private_ip(host: str) -> bool:
 
 
 class WebhookCreate(BaseModel):
-    url: str
-    event_type: str = Field(default="*", description="Event type filter or * for all")
-    secret: str | None = None
+    url: str = Field(max_length=2048)
+    event_type: str = Field(
+        default="*", max_length=64, description="Event type filter or * for all"
+    )
+    secret: str | None = Field(default=None, max_length=256)
 
     @field_validator("url")
     @classmethod
@@ -53,7 +55,7 @@ class WebhookOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.post("", response_model=WebhookOut, status_code=201)
+@router.post("", response_model=WebhookOut, status_code=201, summary="Create webhook")
 async def create_webhook(
     request: WebhookCreate,
     db: AsyncSession = Depends(get_db),
@@ -71,20 +73,33 @@ async def create_webhook(
     return WebhookOut.model_validate(wh)
 
 
-@router.get("", response_model=list[WebhookOut])
+class WebhookListOut(BaseModel):
+    webhooks: list[WebhookOut]
+    total: int
+
+
+@router.get("", response_model=WebhookListOut, summary="List webhooks")
 async def list_webhooks(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     tenant: Tenant = Depends(require_tenant),
-) -> list[WebhookOut]:
-    query = select(Webhook).where(
+) -> WebhookListOut:
+    base = select(Webhook).where(
         Webhook.is_active.is_(True),
         Webhook.tenant_id == tenant.id,
     )
-    result = await db.execute(query)
-    return [WebhookOut.model_validate(w) for w in result.scalars().all()]
+    total = (await db.execute(
+        select(func.count()).select_from(base.subquery())
+    )).scalar_one()
+    result = await db.execute(base.offset(skip).limit(limit))
+    return WebhookListOut(
+        webhooks=[WebhookOut.model_validate(w) for w in result.scalars().all()],
+        total=total,
+    )
 
 
-@router.delete("/{webhook_id}", status_code=204)
+@router.delete("/{webhook_id}", status_code=204, summary="Delete webhook")
 async def delete_webhook(
     webhook_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),

@@ -40,12 +40,18 @@ def create_app() -> FastAPI:
     )
 
     origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+    is_dev = settings.app_env == "development"
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins if settings.app_env != "development" else ["*"],
+        allow_origins=["*"] if is_dev else origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["*"] if is_dev else ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=(
+            ["*"]
+            if is_dev
+            else ["Authorization", "Content-Type", "Accept", "X-API-Key", "X-Request-ID"]
+        ),
+        expose_headers=["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
     )
 
     app.add_middleware(SecurityHeadersMiddleware)

@@ -1,8 +1,8 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_tenant_id, require_tenant
@@ -14,21 +14,21 @@ router = APIRouter()
 
 
 class AssistantCreate(BaseModel):
-    name: str
-    description: str | None = None
-    system_prompt: str
-    model: str = "openai/gpt-4o-mini"
-    temperature: float = 0.7
-    icon: str = "bot"
+    name: str = Field(min_length=1, max_length=256)
+    description: str | None = Field(default=None, max_length=2000)
+    system_prompt: str = Field(min_length=1, max_length=10000)
+    model: str = Field(default="openai/gpt-4o-mini", max_length=128)
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+    icon: str = Field(default="bot", max_length=8)
 
 
 class AssistantUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
-    system_prompt: str | None = None
-    model: str | None = None
-    temperature: float | None = None
-    icon: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=256)
+    description: str | None = Field(default=None, max_length=2000)
+    system_prompt: str | None = Field(default=None, min_length=1, max_length=10000)
+    model: str | None = Field(default=None, max_length=128)
+    temperature: float | None = Field(default=None, ge=0.0, le=2.0)
+    icon: str | None = Field(default=None, max_length=8)
 
 
 class AssistantOut(BaseModel):
@@ -62,25 +62,32 @@ def _to_out(a: Assistant) -> AssistantOut:
     )
 
 
-@router.get("", response_model=AssistantListOut)
+@router.get("", response_model=AssistantListOut, summary="List assistants")
 async def list_assistants(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     tenant: Tenant = Depends(require_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> AssistantListOut:
     tid = get_tenant_id(tenant)
+    total = (await db.execute(
+        select(func.count(Assistant.id)).where(Assistant.tenant_id == tid)
+    )).scalar_one()
     result = await db.execute(
         select(Assistant)
         .where(Assistant.tenant_id == tid)
         .order_by(Assistant.created_at.desc())
+        .offset(skip)
+        .limit(limit)
     )
     assistants = result.scalars().all()
     return AssistantListOut(
         assistants=[_to_out(a) for a in assistants],
-        total=len(assistants),
+        total=total,
     )
 
 
-@router.post("", response_model=AssistantOut, status_code=201)
+@router.post("", response_model=AssistantOut, status_code=201, summary="Create assistant")
 async def create_assistant(
     body: AssistantCreate,
     tenant: Tenant = Depends(require_tenant),
@@ -102,7 +109,7 @@ async def create_assistant(
     return _to_out(a)
 
 
-@router.get("/{assistant_id}", response_model=AssistantOut)
+@router.get("/{assistant_id}", response_model=AssistantOut, summary="Get assistant")
 async def get_assistant(
     assistant_id: uuid.UUID,
     tenant: Tenant = Depends(require_tenant),
@@ -118,7 +125,7 @@ async def get_assistant(
     return _to_out(a)
 
 
-@router.patch("/{assistant_id}", response_model=AssistantOut)
+@router.patch("/{assistant_id}", response_model=AssistantOut, summary="Update assistant")
 async def update_assistant(
     assistant_id: uuid.UUID,
     body: AssistantUpdate,
@@ -143,7 +150,7 @@ async def update_assistant(
     return _to_out(a)
 
 
-@router.delete("/{assistant_id}", status_code=204)
+@router.delete("/{assistant_id}", status_code=204, summary="Delete assistant")
 async def delete_assistant(
     assistant_id: uuid.UUID,
     tenant: Tenant = Depends(require_tenant),

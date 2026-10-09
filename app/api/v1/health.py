@@ -11,13 +11,13 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
-@router.get("/health")
+@router.get("/health", summary="Health check")
 async def health_check() -> dict[str, str]:
     """Shallow health check for load balancer probes."""
     return {"status": "ok"}
 
 
-@router.get("/health/deep")
+@router.get("/health/deep", summary="Deep health check")
 async def deep_health_check(
     db: AsyncSession = Depends(get_db),
 ) -> dict:

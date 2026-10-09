@@ -11,7 +11,7 @@ from app.services.extraction_service import ExtractionService
 router = APIRouter()
 
 
-@router.post("/json", response_model=ExtractionResponse)
+@router.post("/json", response_model=ExtractionResponse, summary="Extract structured data")
 @limiter.limit("20/minute")
 async def extract_json(
     request: Request,

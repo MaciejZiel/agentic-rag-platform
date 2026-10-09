@@ -30,7 +30,7 @@ class CompareResponse(BaseModel):
     cost_usd: float
 
 
-@router.post("", response_model=CompareResponse)
+@router.post("", response_model=CompareResponse, summary="Compare documents")
 async def compare_documents(
     body: CompareRequest,
     _tenant: Tenant = Depends(require_tenant),

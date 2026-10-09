@@ -1,9 +1,9 @@
 import json
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_tenant_id, require_tenant
@@ -15,16 +15,16 @@ router = APIRouter()
 
 
 class WorkflowCreate(BaseModel):
-    name: str
-    description: str | None = None
+    name: str = Field(min_length=1, max_length=256)
+    description: str | None = Field(default=None, max_length=2000)
     definition: dict | None = None
 
 
 class WorkflowUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=256)
+    description: str | None = Field(default=None, max_length=2000)
     definition: dict | None = None
-    status: str | None = None
+    status: str | None = Field(default=None, max_length=32)
 
 
 class WorkflowOut(BaseModel):
@@ -58,25 +58,32 @@ def _to_out(w: Workflow) -> WorkflowOut:
     )
 
 
-@router.get("", response_model=WorkflowListOut)
+@router.get("", response_model=WorkflowListOut, summary="List workflows")
 async def list_workflows(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     tenant: Tenant = Depends(require_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> WorkflowListOut:
     tid = get_tenant_id(tenant)
+    total = (await db.execute(
+        select(func.count(Workflow.id)).where(Workflow.tenant_id == tid)
+    )).scalar_one()
     result = await db.execute(
         select(Workflow)
         .where(Workflow.tenant_id == tid)
         .order_by(Workflow.created_at.desc())
+        .offset(skip)
+        .limit(limit)
     )
     workflows = result.scalars().all()
     return WorkflowListOut(
         workflows=[_to_out(w) for w in workflows],
-        total=len(workflows),
+        total=total,
     )
 
 
-@router.post("", response_model=WorkflowOut, status_code=201)
+@router.post("", response_model=WorkflowOut, status_code=201, summary="Create workflow")
 async def create_workflow(
     body: WorkflowCreate,
     tenant: Tenant = Depends(require_tenant),
@@ -95,7 +102,7 @@ async def create_workflow(
     return _to_out(w)
 
 
-@router.get("/{workflow_id}", response_model=WorkflowOut)
+@router.get("/{workflow_id}", response_model=WorkflowOut, summary="Get workflow")
 async def get_workflow(
     workflow_id: uuid.UUID,
     tenant: Tenant = Depends(require_tenant),
@@ -111,7 +118,7 @@ async def get_workflow(
     return _to_out(w)
 
 
-@router.patch("/{workflow_id}", response_model=WorkflowOut)
+@router.patch("/{workflow_id}", response_model=WorkflowOut, summary="Update workflow")
 async def update_workflow(
     workflow_id: uuid.UUID,
     body: WorkflowUpdate,
@@ -140,7 +147,7 @@ async def update_workflow(
     return _to_out(w)
 
 
-@router.delete("/{workflow_id}", status_code=204)
+@router.delete("/{workflow_id}", status_code=204, summary="Delete workflow")
 async def delete_workflow(
     workflow_id: uuid.UUID,
     tenant: Tenant = Depends(require_tenant),

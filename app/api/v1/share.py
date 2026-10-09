@@ -40,7 +40,7 @@ class SharedDocumentOut(BaseModel):
     chunks: list[dict]
 
 
-@router.post("", response_model=ShareLinkOut, status_code=201)
+@router.post("", response_model=ShareLinkOut, status_code=201, summary="Create share link")
 async def create_share_link(
     request: CreateShareLinkRequest,
     db: AsyncSession = Depends(get_db),
@@ -77,7 +77,7 @@ async def create_share_link(
     )
 
 
-@router.get("/{token}", response_model=SharedDocumentOut)
+@router.get("/{token}", response_model=SharedDocumentOut, summary="Access shared document")
 async def get_shared_document(
     token: str,
     db: AsyncSession = Depends(get_db),
@@ -119,7 +119,7 @@ async def get_shared_document(
     )
 
 
-@router.delete("/{token}", status_code=204)
+@router.delete("/{token}", status_code=204, summary="Revoke share link")
 async def revoke_share_link(
     token: str,
     db: AsyncSession = Depends(get_db),

@@ -13,7 +13,7 @@ from app.schemas.qa import ConversationListOut, ConversationOut
 router = APIRouter()
 
 
-@router.get("", response_model=ConversationListOut)
+@router.get("", response_model=ConversationListOut, summary="List conversations")
 async def list_conversations(
     skip: int = 0,
     limit: int = 20,
@@ -36,7 +36,7 @@ async def list_conversations(
     )
 
 
-@router.get("/{conversation_id}")
+@router.get("/{conversation_id}", summary="Get conversation")
 async def get_conversation(
     conversation_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -62,7 +62,7 @@ async def get_conversation(
     }
 
 
-@router.delete("/{conversation_id}", status_code=204)
+@router.delete("/{conversation_id}", status_code=204, summary="Delete conversation")
 async def delete_conversation(
     conversation_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),

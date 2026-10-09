@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class JobOut(BaseModel):
@@ -20,5 +20,5 @@ class JobOut(BaseModel):
 
 
 class JobCreateRequest(BaseModel):
-    job_type: str
-    payload: dict[str, Any]
+    job_type: str = Field(min_length=1, max_length=64)
+    payload: dict[str, Any] = Field(default_factory=dict)

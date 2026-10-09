@@ -12,7 +12,10 @@ class ShareLink(BaseModel):
     __tablename__ = "share_links"
 
     document_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     token: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(

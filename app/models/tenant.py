@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, String
+from sqlalchemy import Boolean, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
@@ -19,9 +19,12 @@ class Tenant(BaseModel):
 
 class ApiKey(BaseModel):
     __tablename__ = "api_keys"
+    __table_args__ = (
+        Index("ix_api_keys_tenant_id", "tenant_id"),
+    )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        __import__("sqlalchemy").ForeignKey("tenants.id", ondelete="CASCADE"),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
         nullable=False,
     )
     key_hash: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)

@@ -16,7 +16,7 @@ from app.services.qa_service import QAService
 router = APIRouter()
 
 
-@router.get("/history")
+@router.get("/history", summary="Get query history")
 async def get_query_history(
     skip: int = 0,
     limit: int = 50,
@@ -44,7 +44,7 @@ async def get_query_history(
     ]
 
 
-@router.post("/ask", response_model=AskResponse)
+@router.post("/ask", response_model=AskResponse, summary="Ask question (RAG)")
 @limiter.limit("30/minute")
 async def ask_question(
     request: Request,
@@ -58,7 +58,7 @@ async def ask_question(
     return await service.ask(body)
 
 
-@router.post("/ask/stream")
+@router.post("/ask/stream", summary="Ask question (streaming)")
 @limiter.limit("30/minute")
 async def ask_question_stream(
     request: Request,

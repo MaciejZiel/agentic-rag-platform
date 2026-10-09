@@ -852,8 +852,8 @@ export interface WebhookItem {
 export async function listWebhooks(): Promise<WebhookItem[]> {
   const res = await authFetch(`${BASE}/webhooks`);
   if (!res.ok) return [];
-  const data = await res.json();
-  return Array.isArray(data) ? data : [];
+  const data: { webhooks?: WebhookItem[] } = await res.json();
+  return Array.isArray(data.webhooks) ? data.webhooks : [];
 }
 
 export async function createWebhook(url: string, eventType = "*"): Promise<WebhookItem> {

@@ -16,7 +16,7 @@ from app.services.document_service import DocumentService
 router = APIRouter()
 
 
-@router.post("/upload", response_model=DocumentOut, status_code=201)
+@router.post("/upload", response_model=DocumentOut, status_code=201, summary="Upload document")
 @limiter.limit("20/minute")
 async def upload_document(
     request: Request,
@@ -28,7 +28,7 @@ async def upload_document(
     return await service.upload(file, tenant_id=tenant.id)
 
 
-@router.post("/{document_id}/index", response_model=DocumentOut)
+@router.post("/{document_id}/index", response_model=DocumentOut, summary="Index document")
 @limiter.limit("10/minute")
 async def index_document(
     request: Request,
@@ -50,7 +50,7 @@ async def index_document(
     )
 
 
-@router.get("", response_model=DocumentListOut)
+@router.get("", response_model=DocumentListOut, summary="List documents")
 async def list_documents(
     skip: int = 0,
     limit: int = 20,
@@ -63,7 +63,7 @@ async def list_documents(
     )
 
 
-@router.get("/{document_id}", response_model=DocumentOut)
+@router.get("/{document_id}", response_model=DocumentOut, summary="Get document")
 async def get_document(
     document_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -73,7 +73,7 @@ async def get_document(
     return await service.get_document(document_id, tenant_id=tenant.id)
 
 
-@router.get("/{document_id}/chunks")
+@router.get("/{document_id}/chunks", summary="Get document chunks")
 async def get_document_chunks(
     document_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -99,7 +99,7 @@ async def get_document_chunks(
     ]
 
 
-@router.post("/{document_id}/preview-chunks")
+@router.post("/{document_id}/preview-chunks", summary="Preview document chunking")
 async def preview_chunks(
     document_id: uuid.UUID,
     request: IndexRequest | None = None,
@@ -147,7 +147,7 @@ async def preview_chunks(
     }
 
 
-@router.delete("/{document_id}", status_code=204)
+@router.delete("/{document_id}", status_code=204, summary="Delete document")
 async def delete_document(
     document_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
