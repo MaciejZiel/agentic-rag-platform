@@ -50,11 +50,11 @@ async def ask_question(
     request: Request,
     body: AskRequest,
     db: AsyncSession = Depends(get_db),
-    _tenant: Tenant = Depends(require_tenant),
+    tenant: Tenant = Depends(require_tenant),
     llm: LLMClient = Depends(get_llm_client),
     vector_store: VectorStoreClient = Depends(get_vector_store),
 ) -> AskResponse:
-    service = QAService(db, llm, vector_store)
+    service = QAService(db, llm, vector_store, tenant_id=tenant.id)
     return await service.ask(body)
 
 
@@ -64,10 +64,10 @@ async def ask_question_stream(
     request: Request,
     body: AskRequest,
     db: AsyncSession = Depends(get_db),
-    _tenant: Tenant = Depends(require_tenant),
+    tenant: Tenant = Depends(require_tenant),
     llm: LLMClient = Depends(get_llm_client),
     vector_store: VectorStoreClient = Depends(get_vector_store),
 ) -> StreamingResponse:
-    service = QAService(db, llm, vector_store)
-    stream = service.ask_stream(body)
+    service = QAService(db, llm, vector_store, tenant_id=tenant.id)
+    stream = await service.ask_stream(body)
     return StreamingResponse(stream, media_type="text/event-stream")

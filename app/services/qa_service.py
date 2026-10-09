@@ -8,6 +8,7 @@ from app.clients.openai_client import LLMClient, estimate_cost
 from app.clients.qdrant_client import VectorStoreClient
 from app.core.cache import get_cached_answer, set_cached_answer
 from app.core.config import settings
+from app.core.exceptions import NotFoundError
 from app.core.logging import get_logger
 from app.models.conversation import Conversation, ConversationMessage
 from app.models.query import ChatQuery
@@ -23,9 +24,14 @@ MAX_HISTORY_MESSAGES = 10  # last N messages to include as context
 
 class QAService:
     def __init__(
-        self, db: AsyncSession, llm: LLMClient, vector_store: VectorStoreClient
+        self,
+        db: AsyncSession,
+        llm: LLMClient,
+        vector_store: VectorStoreClient,
+        tenant_id: uuid.UUID,
     ) -> None:
         self.db = db
+        self.tenant_id = tenant_id
         self.llm = llm
         self.vector_store = vector_store
         self.doc_repo = DocumentRepository(db)
@@ -36,10 +42,12 @@ class QAService:
         self, conversation_id: uuid.UUID | None,
     ) -> Conversation:
         if conversation_id:
-            conv = await self.conv_repo.get_by_id(conversation_id)
-            if conv:
-                return conv
-        conv = Conversation(title="New conversation")
+            conv = await self.conv_repo.get_for_tenant(conversation_id, self.tenant_id)
+            if conv is None:
+                # Unknown and foreign ids look the same, so ids cannot be probed.
+                raise NotFoundError("Conversation", conversation_id)
+            return conv
+        conv = Conversation(tenant_id=self.tenant_id, title="New conversation")
         return await self.conv_repo.create(conv)
 
     def _build_history_messages(self, conversation: Conversation) -> list[dict[str, str]]:
@@ -54,7 +62,9 @@ class QAService:
 
         # Check cache (only for new conversations without history)
         if not request.conversation_id:
-            cached = await get_cached_answer(request.question, doc_ids_str, model)
+            cached = await get_cached_answer(
+                str(self.tenant_id), request.question, doc_ids_str, model,
+            )
             if cached:
                 return AskResponse(**cached)
 
@@ -68,12 +78,15 @@ class QAService:
         # Search vector store
         results = self.vector_store.search(
             query_vector=query_vector,
+            tenant_id=self.tenant_id,
             top_k=request.top_k,
             document_ids=request.document_ids,
         )
 
         if not results:
             logger.info("qa_no_sources", question=request.question[:100])
+            # Persist the conversation so the returned id can be continued.
+            await self.db.commit()
             return AskResponse(
                 answer="No relevant sources found for this question.",
                 sources=[],
@@ -85,7 +98,7 @@ class QAService:
 
         # Fetch chunk contents from DB
         chunk_ids = [uuid.UUID(r["payload"]["chunk_id"]) for r in results]
-        chunks = await self.doc_repo.get_chunks_by_ids(chunk_ids)
+        chunks = await self.doc_repo.get_chunks_by_ids(chunk_ids, self.tenant_id)
         chunk_map = {str(c.id): c for c in chunks}
 
         # Build context with sequential numbering to reduce citation hallucination
@@ -145,6 +158,7 @@ class QAService:
         # Persist the query
         doc_ids_json = json.dumps([str(s.document_id) for s in sources])
         chat_query = ChatQuery(
+            tenant_id=self.tenant_id,
             question=request.question,
             answer=answer,
             document_ids=doc_ids_json,
@@ -168,16 +182,25 @@ class QAService:
 
         # Cache the result
         await set_cached_answer(
+            str(self.tenant_id),
             request.question, doc_ids_str, model, response.model_dump(mode="json"),
         )
 
         return response
 
     async def ask_stream(self, request: AskRequest) -> AsyncGenerator[str, None]:
-        model = request.model or settings.chat_model
+        """Resolve the conversation up front, then return the SSE generator.
 
-        # Conversation handling
+        Resolving before the response starts lets an unknown or foreign
+        conversation id surface as a normal 404 instead of a broken stream.
+        """
         conv = await self._get_or_create_conversation(request.conversation_id)
+        return self._stream(request, conv)
+
+    async def _stream(
+        self, request: AskRequest, conv: Conversation,
+    ) -> AsyncGenerator[str, None]:
+        model = request.model or settings.chat_model
 
         # Embed and search
         query_embeddings = await self.llm.create_embeddings([request.question])
@@ -185,18 +208,20 @@ class QAService:
 
         results = self.vector_store.search(
             query_vector=query_vector,
+            tenant_id=self.tenant_id,
             top_k=request.top_k,
             document_ids=request.document_ids,
         )
 
         if not results:
+            await self.db.commit()
             yield f"data: {json.dumps({'type': 'sources', 'sources': []})}\n\n"
             yield f"data: {json.dumps({'type': 'token', 'content': 'No relevant sources found for this question.'})}\n\n"
             yield f"data: {json.dumps({'type': 'done', 'conversation_id': str(conv.id)})}\n\n"
             return
 
         chunk_ids = [uuid.UUID(r["payload"]["chunk_id"]) for r in results]
-        chunks = await self.doc_repo.get_chunks_by_ids(chunk_ids)
+        chunks = await self.doc_repo.get_chunks_by_ids(chunk_ids, self.tenant_id)
         chunk_map = {str(c.id): c for c in chunks}
 
         context_parts: list[str] = []

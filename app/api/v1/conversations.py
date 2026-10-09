@@ -21,7 +21,8 @@ async def list_conversations(
     tenant: Tenant = Depends(require_tenant),
 ) -> ConversationListOut:
     repo = ConversationRepository(db)
-    convs = await repo.list_all(skip=skip, limit=limit, tenant_id=tenant.id)
+    convs = await repo.list_all(tenant_id=tenant.id, skip=skip, limit=limit)
+    total = await repo.count(tenant.id)
     return ConversationListOut(
         conversations=[
             ConversationOut(
@@ -32,7 +33,7 @@ async def list_conversations(
             )
             for c in convs
         ],
-        total=len(convs),
+        total=total,
     )
 
 
@@ -43,8 +44,8 @@ async def get_conversation(
     tenant: Tenant = Depends(require_tenant),
 ) -> dict:
     repo = ConversationRepository(db)
-    conv = await repo.get_by_id(conversation_id)
-    if not conv or conv.tenant_id != tenant.id:
+    conv = await repo.get_for_tenant(conversation_id, tenant.id)
+    if not conv:
         raise NotFoundError("Conversation", conversation_id)
     return {
         "id": str(conv.id),
@@ -69,8 +70,8 @@ async def delete_conversation(
     tenant: Tenant = Depends(require_tenant),
 ) -> None:
     repo = ConversationRepository(db)
-    conv = await repo.get_by_id(conversation_id)
-    if not conv or conv.tenant_id != tenant.id:
+    conv = await repo.get_for_tenant(conversation_id, tenant.id)
+    if not conv:
         raise NotFoundError("Conversation", conversation_id)
-    await repo.delete(conversation_id)
+    await repo.delete(conv)
     await db.commit()

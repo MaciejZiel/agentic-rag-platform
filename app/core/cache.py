@@ -21,9 +21,16 @@ def get_redis() -> aioredis.Redis:
     return _redis
 
 
-def _cache_key(question: str, document_ids: list[str] | None, model: str) -> str:
-    """Generate a deterministic cache key from query parameters."""
+def _cache_key(
+    tenant_id: str, question: str, document_ids: list[str] | None, model: str,
+) -> str:
+    """Generate a deterministic cache key from query parameters.
+
+    The tenant is part of the key: answers are built from a tenant's private
+    documents and must never be served to another tenant.
+    """
     parts = {
+        "tenant": tenant_id,
         "q": question.strip().lower(),
         "docs": sorted(document_ids) if document_ids else [],
         "model": model,
@@ -34,11 +41,12 @@ def _cache_key(question: str, document_ids: list[str] | None, model: str) -> str
 
 
 async def get_cached_answer(
+    tenant_id: str,
     question: str, document_ids: list[str] | None, model: str,
 ) -> dict[str, Any] | None:
     try:
         r = get_redis()
-        key = _cache_key(question, document_ids, model)
+        key = _cache_key(tenant_id, question, document_ids, model)
         data = await r.get(key)
         if data:
             logger.info("cache_hit", key=key)
@@ -49,6 +57,7 @@ async def get_cached_answer(
 
 
 async def set_cached_answer(
+    tenant_id: str,
     question: str,
     document_ids: list[str] | None,
     model: str,
@@ -57,7 +66,7 @@ async def set_cached_answer(
 ) -> None:
     try:
         r = get_redis()
-        key = _cache_key(question, document_ids, model)
+        key = _cache_key(tenant_id, question, document_ids, model)
         await r.set(key, json.dumps(answer_data), ex=ttl)
         logger.info("cache_set", key=key, ttl=ttl)
     except Exception as e:
