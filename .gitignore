@@ -27,4 +27,3 @@ htmlcov/
 .mypy_cache/
 *.db
 
-.claude/
