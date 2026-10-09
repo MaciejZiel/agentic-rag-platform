@@ -62,7 +62,7 @@ def _to_out(a: Assistant) -> AssistantOut:
     )
 
 
-@router.get("", response_model=AssistantListOut)
+@router.get("", response_model=AssistantListOut, summary="List assistants")
 async def list_assistants(
     tenant: Tenant = Depends(require_tenant),
     db: AsyncSession = Depends(get_db),
@@ -80,7 +80,7 @@ async def list_assistants(
     )
 
 
-@router.post("", response_model=AssistantOut, status_code=201)
+@router.post("", response_model=AssistantOut, status_code=201, summary="Create assistant")
 async def create_assistant(
     body: AssistantCreate,
     tenant: Tenant = Depends(require_tenant),
@@ -102,7 +102,7 @@ async def create_assistant(
     return _to_out(a)
 
 
-@router.get("/{assistant_id}", response_model=AssistantOut)
+@router.get("/{assistant_id}", response_model=AssistantOut, summary="Get assistant")
 async def get_assistant(
     assistant_id: uuid.UUID,
     tenant: Tenant = Depends(require_tenant),
@@ -118,7 +118,7 @@ async def get_assistant(
     return _to_out(a)
 
 
-@router.patch("/{assistant_id}", response_model=AssistantOut)
+@router.patch("/{assistant_id}", response_model=AssistantOut, summary="Update assistant")
 async def update_assistant(
     assistant_id: uuid.UUID,
     body: AssistantUpdate,
@@ -143,7 +143,7 @@ async def update_assistant(
     return _to_out(a)
 
 
-@router.delete("/{assistant_id}", status_code=204)
+@router.delete("/{assistant_id}", status_code=204, summary="Delete assistant")
 async def delete_assistant(
     assistant_id: uuid.UUID,
     tenant: Tenant = Depends(require_tenant),

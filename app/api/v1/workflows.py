@@ -58,7 +58,7 @@ def _to_out(w: Workflow) -> WorkflowOut:
     )
 
 
-@router.get("", response_model=WorkflowListOut)
+@router.get("", response_model=WorkflowListOut, summary="List workflows")
 async def list_workflows(
     tenant: Tenant = Depends(require_tenant),
     db: AsyncSession = Depends(get_db),
@@ -76,7 +76,7 @@ async def list_workflows(
     )
 
 
-@router.post("", response_model=WorkflowOut, status_code=201)
+@router.post("", response_model=WorkflowOut, status_code=201, summary="Create workflow")
 async def create_workflow(
     body: WorkflowCreate,
     tenant: Tenant = Depends(require_tenant),
@@ -95,7 +95,7 @@ async def create_workflow(
     return _to_out(w)
 
 
-@router.get("/{workflow_id}", response_model=WorkflowOut)
+@router.get("/{workflow_id}", response_model=WorkflowOut, summary="Get workflow")
 async def get_workflow(
     workflow_id: uuid.UUID,
     tenant: Tenant = Depends(require_tenant),
@@ -111,7 +111,7 @@ async def get_workflow(
     return _to_out(w)
 
 
-@router.patch("/{workflow_id}", response_model=WorkflowOut)
+@router.patch("/{workflow_id}", response_model=WorkflowOut, summary="Update workflow")
 async def update_workflow(
     workflow_id: uuid.UUID,
     body: WorkflowUpdate,
@@ -140,7 +140,7 @@ async def update_workflow(
     return _to_out(w)
 
 
-@router.delete("/{workflow_id}", status_code=204)
+@router.delete("/{workflow_id}", status_code=204, summary="Delete workflow")
 async def delete_workflow(
     workflow_id: uuid.UUID,
     tenant: Tenant = Depends(require_tenant),

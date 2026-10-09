@@ -19,7 +19,7 @@ class TenantResponse(BaseModel):
     api_key: str  # Only returned on creation
 
 
-@router.post("", response_model=TenantResponse, status_code=201)
+@router.post("", response_model=TenantResponse, status_code=201, summary="Create tenant")
 async def create_tenant(
     request: CreateTenantRequest,
     db: AsyncSession = Depends(get_db),

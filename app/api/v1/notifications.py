@@ -28,7 +28,7 @@ class NotificationListOut(BaseModel):
     unread_count: int
 
 
-@router.get("", response_model=NotificationListOut)
+@router.get("", response_model=NotificationListOut, summary="List notifications")
 async def list_notifications(
     tenant: Tenant = Depends(require_tenant),
     db: AsyncSession = Depends(get_db),
@@ -64,7 +64,7 @@ async def list_notifications(
     )
 
 
-@router.post("/read-all", status_code=204)
+@router.post("/read-all", status_code=204, summary="Mark all notifications read")
 async def mark_all_read(
     tenant: Tenant = Depends(require_tenant),
     db: AsyncSession = Depends(get_db),
@@ -78,7 +78,7 @@ async def mark_all_read(
     await db.commit()
 
 
-@router.post("/{notification_id}/read", status_code=204)
+@router.post("/{notification_id}/read", status_code=204, summary="Mark notification read")
 async def mark_read(
     notification_id: uuid.UUID,
     tenant: Tenant = Depends(require_tenant),

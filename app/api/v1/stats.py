@@ -53,7 +53,7 @@ class DashboardTimeseries(BaseModel):
     by_status: list[DocumentStatusBreakdown]
 
 
-@router.get("", response_model=PlatformStats)
+@router.get("", response_model=PlatformStats, summary="Get platform statistics")
 async def get_stats(
     db: AsyncSession = Depends(get_db),
     _tenant: Tenant = Depends(require_tenant),
@@ -116,7 +116,7 @@ async def get_stats(
     )
 
 
-@router.get("/timeseries", response_model=DashboardTimeseries)
+@router.get("/timeseries", response_model=DashboardTimeseries, summary="Get timeseries data")
 async def get_stats_timeseries(
     days: int = 30,
     db: AsyncSession = Depends(get_db),
@@ -222,7 +222,7 @@ class RateLimitStatus(BaseModel):
     resets_at: str
 
 
-@router.get("/rate-limits", response_model=RateLimitStatus)
+@router.get("/rate-limits", response_model=RateLimitStatus, summary="Get rate limit status")
 async def get_rate_limit_status(
     db: AsyncSession = Depends(get_db),
     _tenant: Tenant = Depends(require_tenant),

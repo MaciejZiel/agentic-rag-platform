@@ -64,7 +64,9 @@ async def get_current_user(
 # ─── Endpoints ───────────────────────────────────────────────────
 
 
-@router.post("/register", response_model=MessageResponse, status_code=201)
+@router.post(
+    "/register", response_model=MessageResponse, status_code=201, summary="Register account"
+)
 async def register(
     request: RegisterRequest,
     db: AsyncSession = Depends(get_db),
@@ -115,7 +117,7 @@ async def register(
     return MessageResponse(message="Account created. Please verify your email.")
 
 
-@router.post("/verify-email", response_model=TokenResponse)
+@router.post("/verify-email", response_model=TokenResponse, summary="Verify email")
 async def verify_email(
     request: VerifyEmailRequest,
     db: AsyncSession = Depends(get_db),
@@ -142,7 +144,7 @@ async def verify_email(
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse, summary="Sign in")
 async def login(
     request: LoginRequest,
     db: AsyncSession = Depends(get_db),
@@ -176,7 +178,7 @@ async def login(
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", response_model=TokenResponse, summary="Refresh access token")
 async def refresh(
     request: RefreshRequest,
     db: AsyncSession = Depends(get_db),
@@ -202,7 +204,7 @@ async def refresh(
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=UserResponse, summary="Get current user")
 async def get_me(
     user: User = Depends(get_current_user),
 ) -> UserResponse:
@@ -219,7 +221,7 @@ async def get_me(
     )
 
 
-@router.post("/verify-2fa", response_model=MessageResponse)
+@router.post("/verify-2fa", response_model=MessageResponse, summary="Verify two-factor code")
 async def verify_two_factor(
     request: VerifyEmailRequest,
     db: AsyncSession = Depends(get_db),
@@ -247,7 +249,7 @@ async def verify_two_factor(
     return MessageResponse(message="2FA verification successful.")
 
 
-@router.post("/resend-code", response_model=MessageResponse)
+@router.post("/resend-code", response_model=MessageResponse, summary="Resend verification code")
 async def resend_verification_code(
     request: VerifyEmailRequest,
     db: AsyncSession = Depends(get_db),

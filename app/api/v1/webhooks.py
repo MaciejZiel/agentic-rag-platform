@@ -53,7 +53,7 @@ class WebhookOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.post("", response_model=WebhookOut, status_code=201)
+@router.post("", response_model=WebhookOut, status_code=201, summary="Create webhook")
 async def create_webhook(
     request: WebhookCreate,
     db: AsyncSession = Depends(get_db),
@@ -84,7 +84,7 @@ async def list_webhooks(
     return [WebhookOut.model_validate(w) for w in result.scalars().all()]
 
 
-@router.delete("/{webhook_id}", status_code=204)
+@router.delete("/{webhook_id}", status_code=204, summary="Delete webhook")
 async def delete_webhook(
     webhook_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),

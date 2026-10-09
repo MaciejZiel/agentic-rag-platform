@@ -28,7 +28,7 @@ class ModelsResponse(BaseModel):
     default: str
 
 
-@router.get("", response_model=ModelsResponse)
+@router.get("", response_model=ModelsResponse, summary="List available models")
 async def list_models() -> ModelsResponse:
     return ModelsResponse(
         models=[ModelInfo(**m) for m in AVAILABLE_MODELS],

@@ -32,7 +32,7 @@ def _to_out(c: Collection) -> CollectionOut:
     )
 
 
-@router.get("", response_model=CollectionListOut)
+@router.get("", response_model=CollectionListOut, summary="List collections")
 async def list_collections(
     tenant: Tenant = Depends(require_tenant),
     db: AsyncSession = Depends(get_db),
@@ -51,7 +51,7 @@ async def list_collections(
     )
 
 
-@router.post("", response_model=CollectionOut, status_code=201)
+@router.post("", response_model=CollectionOut, status_code=201, summary="Create collection")
 async def create_collection(
     body: CollectionCreate,
     tenant: Tenant = Depends(require_tenant),
@@ -70,7 +70,7 @@ async def create_collection(
     return _to_out(c)
 
 
-@router.get("/{collection_id}", response_model=CollectionOut)
+@router.get("/{collection_id}", response_model=CollectionOut, summary="Get collection")
 async def get_collection(
     collection_id: uuid.UUID,
     tenant: Tenant = Depends(require_tenant),
@@ -88,7 +88,7 @@ async def get_collection(
     return _to_out(c)
 
 
-@router.patch("/{collection_id}", response_model=CollectionOut)
+@router.patch("/{collection_id}", response_model=CollectionOut, summary="Update collection")
 async def update_collection(
     collection_id: uuid.UUID,
     body: CollectionUpdate,
@@ -117,7 +117,7 @@ async def update_collection(
     return _to_out(c)
 
 
-@router.delete("/{collection_id}", status_code=204)
+@router.delete("/{collection_id}", status_code=204, summary="Delete collection")
 async def delete_collection(
     collection_id: uuid.UUID,
     tenant: Tenant = Depends(require_tenant),
@@ -134,7 +134,11 @@ async def delete_collection(
     await db.commit()
 
 
-@router.post("/{collection_id}/documents/{document_id}", status_code=204)
+@router.post(
+    "/{collection_id}/documents/{document_id}",
+    status_code=204,
+    summary="Add document to collection",
+)
 async def add_document_to_collection(
     collection_id: uuid.UUID,
     document_id: uuid.UUID,
@@ -162,7 +166,11 @@ async def add_document_to_collection(
     await db.commit()
 
 
-@router.delete("/{collection_id}/documents/{document_id}", status_code=204)
+@router.delete(
+    "/{collection_id}/documents/{document_id}",
+    status_code=204,
+    summary="Remove document from collection",
+)
 async def remove_document_from_collection(
     collection_id: uuid.UUID,
     document_id: uuid.UUID,

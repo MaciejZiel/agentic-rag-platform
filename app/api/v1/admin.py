@@ -54,7 +54,7 @@ class AdminOverview(BaseModel):
     recent_users: list[UserInfo]
 
 
-@router.get("/overview", response_model=AdminOverview)
+@router.get("/overview", response_model=AdminOverview, summary="Get admin overview")
 async def admin_overview(
     _tenant: Tenant = Depends(require_tenant),
     db: AsyncSession = Depends(get_db),
@@ -133,7 +133,7 @@ class AuditLogOut(BaseModel):
     created_at: str
 
 
-@router.get("/audit-logs", response_model=list[AuditLogOut])
+@router.get("/audit-logs", response_model=list[AuditLogOut], summary="List audit logs")
 async def list_audit_logs(
     skip: int = 0,
     limit: int = 50,

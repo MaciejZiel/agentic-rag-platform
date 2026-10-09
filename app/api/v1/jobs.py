@@ -13,7 +13,7 @@ from app.services.job_service import JobService
 router = APIRouter()
 
 
-@router.post("", response_model=JobOut, status_code=201)
+@router.post("", response_model=JobOut, status_code=201, summary="Create job")
 @limiter.limit("10/minute")
 async def create_job(
     request: Request,
@@ -25,7 +25,7 @@ async def create_job(
     return await service.create_job(body)
 
 
-@router.get("/{job_id}", response_model=JobOut)
+@router.get("/{job_id}", response_model=JobOut, summary="Get job status")
 async def get_job(
     job_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
