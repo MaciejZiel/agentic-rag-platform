@@ -65,7 +65,7 @@ export function AdminPage() {
           <ShieldCheck className="h-6 w-6" /> Admin Panel
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          System health, user management, and platform metrics.
+          Health of the service and usage of your workspace.
         </p>
       </div>
 
@@ -97,7 +97,6 @@ export function AdminPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatMini label="Total Users" value={stats.total_users} icon={Users} />
         <StatMini label="Verified Users" value={stats.verified_users} icon={CheckCircle2} />
-        <StatMini label="Tenants" value={stats.total_tenants} icon={Database} />
         <StatMini label="Documents" value={stats.total_documents} icon={FileText} />
         <StatMini label="Queries" value={stats.total_queries} icon={MessageSquare} />
         <StatMini label="Collections" value={stats.total_collections} icon={FolderOpen} />
