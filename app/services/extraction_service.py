@@ -1,4 +1,5 @@
 import json
+import uuid
 from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,11 +24,13 @@ class ExtractionService:
         self.doc_repo = DocumentRepository(db)
         self.query_repo = QueryRepository(db)
 
-    async def extract(self, request: ExtractionRequest) -> ExtractionResponse:
+    async def extract(
+        self, request: ExtractionRequest, tenant_id: uuid.UUID,
+    ) -> ExtractionResponse:
         model = request.model or settings.chat_model
 
         doc = await self.doc_repo.get_by_id(request.document_id)
-        if not doc:
+        if not doc or doc.tenant_id != tenant_id:
             raise NotFoundError("Document", request.document_id)
 
         file_path = Path(doc.file_path)
@@ -50,6 +53,7 @@ class ExtractionService:
 
         # Persist
         record = ExtractionRecord(
+            tenant_id=tenant_id,
             document_id=request.document_id,
             schema_json=json.dumps(request.schema_definition),
             result_json=json.dumps(data),

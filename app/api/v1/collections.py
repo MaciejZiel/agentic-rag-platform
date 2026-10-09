@@ -160,8 +160,10 @@ async def add_document_to_collection(
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Collection not found")
 
-    # Verify document exists
-    result = await db.execute(select(Document).where(Document.id == document_id))
+    # The document must belong to the same tenant as the collection
+    result = await db.execute(
+        select(Document).where(Document.id == document_id, Document.tenant_id == tid)
+    )
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Document not found")
 

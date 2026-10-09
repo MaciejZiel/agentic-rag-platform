@@ -123,10 +123,12 @@ async def get_shared_document(
 async def revoke_share_link(
     token: str,
     db: AsyncSession = Depends(get_db),
-    _tenant: Tenant = Depends(require_tenant),
+    tenant: Tenant = Depends(require_tenant),
 ) -> None:
     link = (await db.execute(
-        select(ShareLink).where(ShareLink.token == token)
+        select(ShareLink)
+        .join(Document, Document.id == ShareLink.document_id)
+        .where(ShareLink.token == token, Document.tenant_id == tenant.id)
     )).scalar_one_or_none()
     if not link:
         raise NotFoundError("Share link", token)

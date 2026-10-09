@@ -17,7 +17,14 @@ class JobRepository:
         return job
 
     async def get_by_id(self, job_id: uuid.UUID) -> Job | None:
+        """Unscoped lookup, for the worker only; API code uses get_for_tenant."""
         result = await self.db.execute(select(Job).where(Job.id == job_id))
+        return result.scalar_one_or_none()
+
+    async def get_for_tenant(self, job_id: uuid.UUID, tenant_id: uuid.UUID) -> Job | None:
+        result = await self.db.execute(
+            select(Job).where(Job.id == job_id, Job.tenant_id == tenant_id)
+        )
         return result.scalar_one_or_none()
 
     async def update_status(

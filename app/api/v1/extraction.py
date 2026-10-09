@@ -2,9 +2,11 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.openai_client import LLMClient
+from app.core.auth import require_tenant
 from app.core.database import get_db
 from app.core.dependencies import get_llm_client
 from app.core.rate_limit import limiter
+from app.models.tenant import Tenant
 from app.schemas.extraction import ExtractionRequest, ExtractionResponse
 from app.services.extraction_service import ExtractionService
 
@@ -17,7 +19,8 @@ async def extract_json(
     request: Request,
     body: ExtractionRequest,
     db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(require_tenant),
     llm: LLMClient = Depends(get_llm_client),
 ) -> ExtractionResponse:
     service = ExtractionService(db, llm)
-    return await service.extract(body)
+    return await service.extract(body, tenant_id=tenant.id)

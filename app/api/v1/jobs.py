@@ -19,17 +19,17 @@ async def create_job(
     request: Request,
     body: JobCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _tenant: Tenant = Depends(require_tenant),
+    tenant: Tenant = Depends(require_tenant),
 ) -> JobOut:
     service = JobService(db)
-    return await service.create_job(body)
+    return await service.create_job(body, tenant_id=tenant.id)
 
 
 @router.get("/{job_id}", response_model=JobOut, summary="Get job status")
 async def get_job(
     job_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _tenant: Tenant = Depends(require_tenant),
+    tenant: Tenant = Depends(require_tenant),
 ) -> JobOut:
     service = JobService(db)
-    return await service.get_job(job_id)
+    return await service.get_job(job_id, tenant_id=tenant.id)
