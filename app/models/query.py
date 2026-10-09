@@ -23,7 +23,8 @@ class ChatQuery(BaseModel):
     source_chunks: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array
     model: Mapped[str] = mapped_column(String(128), nullable=False)
     token_usage: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    cost_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    # Null when the model has no verified price (see app/config/model_pricing.toml).
+    cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
 class ExtractionRequest(BaseModel):
@@ -41,4 +42,5 @@ class ExtractionRequest(BaseModel):
     result_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     model: Mapped[str] = mapped_column(String(128), nullable=False)
     token_usage: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    cost_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    # Null when the model has no verified price (see app/config/model_pricing.toml).
+    cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)

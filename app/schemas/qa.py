@@ -27,7 +27,7 @@ class AskResponse(BaseModel):
     sources: list[SourceCitation]
     model: str
     token_usage: int
-    cost_usd: float
+    cost_usd: float | None
     conversation_id: uuid.UUID | None = None
 
 
@@ -49,4 +49,4 @@ class UsageMetadata(BaseModel):
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
-    cost_usd: float
+    cost_usd: float | None

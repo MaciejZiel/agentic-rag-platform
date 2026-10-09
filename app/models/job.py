@@ -36,4 +36,5 @@ class Job(BaseModel):
     result: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     token_usage: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    cost_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    # Null when the model has no verified price (see app/config/model_pricing.toml).
+    cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
