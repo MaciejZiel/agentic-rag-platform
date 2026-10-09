@@ -24,7 +24,7 @@
 - **Accounts and tenants**: email + password sign-up with a 6-digit verification code, optional TOTP two-factor authentication with recovery codes, JWT access/refresh tokens for the UI and `X-API-Key` keys for scripts, both resolving to a tenant. Every query, vector search and statistic is scoped to the caller's tenant.
 - **Operations**: rate limits (slowapi), Redis answer cache, HMAC-SHA256-signed webhooks, Prometheus `/metrics`, structured logging (structlog) and security headers.
 
-The API has 60 operations across 46 paths; the full list is in Swagger UI at `/docs`.
+The API has 65 operations across 51 paths; the full list is in Swagger UI at `/docs`.
 
 ## Architecture
 
@@ -92,11 +92,11 @@ Swagger UI is at http://localhost:8000/docs and a set of ready-made requests is 
 
 ```bash
 pip install aiosqlite                   # the API tests run against SQLite
-python -m pytest tests/ --cov=app       # 56 tests
-cd frontend && npm test                 # 39 tests (Vitest)
+python -m pytest tests/ --cov=app       # 99 tests
+cd frontend && npm test                 # 49 tests (Vitest)
 ```
 
-The backend tests drive the FastAPI app through `httpx.AsyncClient` with the LLM client and the vector store replaced by mocks, so they need no API keys or running services. Line coverage of `app/` is about 60% (as reported in CI); the upload/index/ask flow, auth validation, chunking and text extraction are covered, while the Celery tasks and several admin endpoints are not yet.
+The backend tests drive the FastAPI app through `httpx.AsyncClient` with the LLM client and the vector store replaced by mocks, so they need no API keys or running services. Line coverage of `app/` is about 77%. Besides the upload/index/ask flow, chunking and text extraction, the suite covers tenant isolation end to end (`tests/api/test_tenant_isolation.py` authenticates two tenants with real API keys and checks that neither can read, search, modify or count the other's data), the 2FA flows, the indexing worker and the pricing table.
 
 CI (GitHub Actions) runs the backend tests, applies every Alembic migration to a real PostgreSQL 16 and runs `alembic check` to fail on drift between models and migrations, then type-checks, builds and tests the frontend.
 
