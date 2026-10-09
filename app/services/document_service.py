@@ -1,4 +1,5 @@
 import hashlib
+import json
 import uuid
 from pathlib import Path
 
@@ -7,18 +8,19 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.clients.openai_client import LLMClient
 from app.clients.qdrant_client import VectorStoreClient
 from app.core.exceptions import (
     FileTooLargeError,
     NotFoundError,
+    ServiceUnavailableError,
     UnsupportedFileTypeError,
     ValidationError,
 )
 from app.core.logging import get_logger
 from app.models.document import Document, DocumentStatus
+from app.models.job import Job, JobStatus, JobType
 from app.repositories.document_repository import DocumentRepository
-from app.schemas.document import DocumentListOut, DocumentOut
+from app.schemas.document import DocumentListOut, DocumentOut, IndexingJobOut
 from app.utils.file_validation import validate_file_magic
 from app.utils.text_extraction import SUPPORTED_EXTENSIONS
 
@@ -148,15 +150,18 @@ class DocumentService:
     async def start_indexing(
         self,
         document_id: uuid.UUID,
-        llm: "LLMClient",
-        vector_store: "VectorStoreClient",
         chunk_strategy: str = "fixed_size",
         max_tokens: int = 512,
         overlap_tokens: int = 50,
         *,
         tenant_id: uuid.UUID,
-    ) -> DocumentOut:
-        from app.services.indexing_service import IndexingService
+    ) -> IndexingJobOut:
+        """Queue chunking and embedding of a document on the Celery worker.
+
+        The document is marked ``processing`` and an ``index_document`` job is
+        recorded; clients poll ``GET /jobs/{job_id}`` (or the document) for
+        the outcome instead of holding the request open while embedding.
+        """
         from app.utils.chunking import ChunkStrategy
 
         doc = await self.get_owned(document_id, tenant_id)
@@ -165,15 +170,44 @@ class DocumentService:
             raise ValidationError(
                 f"Document is in '{doc.status}' state and cannot be re-indexed"
             )
+        try:
+            ChunkStrategy(chunk_strategy)
+        except ValueError:
+            raise ValidationError(f"Unknown chunk strategy '{chunk_strategy}'") from None
 
-        strategy = ChunkStrategy(chunk_strategy)
-        indexing = IndexingService(self.db, llm, vector_store)
-        await indexing.index_document(
-            document_id, strategy=strategy, max_tokens=max_tokens,
-            overlap_tokens=overlap_tokens,
+        job = Job(
+            tenant_id=tenant_id,
+            job_type=JobType.INDEX_DOCUMENT,
+            status=JobStatus.PENDING,
+            payload=json.dumps({
+                "document_id": str(document_id),
+                "chunk_strategy": chunk_strategy,
+                "max_tokens": max_tokens,
+                "overlap_tokens": overlap_tokens,
+            }),
         )
+        self.db.add(job)
+        doc.status = DocumentStatus.PROCESSING
+        doc.error_message = None
         await self.db.commit()
 
-        logger.info("indexing_completed", document_id=str(document_id))
-        doc = await self.repo.get_by_id(document_id)
-        return DocumentOut.model_validate(doc)
+        # Dispatch only after commit so the worker can see the job row.
+        from app.workers.tasks import run_job_task
+
+        try:
+            run_job_task.delay(str(job.id))
+        except Exception as e:
+            logger.error("indexing_dispatch_failed", document_id=str(document_id), error=str(e))
+            message = "Indexing queue is unavailable; try again later."
+            job.status = JobStatus.FAILED
+            job.error_message = message
+            doc.status = DocumentStatus.FAILED
+            doc.error_message = message
+            await self.db.commit()
+            raise ServiceUnavailableError(message) from e
+
+        logger.info("indexing_queued", document_id=str(document_id), job_id=str(job.id))
+        await self.db.refresh(doc)
+        return IndexingJobOut(
+            job_id=job.id, status=job.status, document=DocumentOut.model_validate(doc),
+        )

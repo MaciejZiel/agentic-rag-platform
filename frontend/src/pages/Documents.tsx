@@ -23,6 +23,7 @@ import {
   listDocuments,
   uploadDocument,
   indexDocument,
+  waitForJob,
   deleteDocument,
 } from "@/lib/api";
 import { DocumentDetail } from "@/components/DocumentDetail";
@@ -86,20 +87,28 @@ export function DocumentsPage() {
     for (const doc of toIndex) {
       setIndexingIds((prev) => new Set(prev).add(doc.id));
     }
-    let success = 0;
-    for (const doc of toIndex) {
-      try {
-        await indexDocument(doc.id);
-        success++;
-      } catch { /* continue */ }
-      setIndexingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(doc.id);
-        return next;
-      });
-    }
-    toast.success(`Indexed ${success}/${toIndex.length} documents`);
     setSelectedIds(new Set());
+    // Queue everything first, then wait for the worker to finish each job.
+    const results = await Promise.all(
+      toIndex.map(async (doc) => {
+        try {
+          const { job_id } = await indexDocument(doc.id);
+          await refresh();
+          const job = await waitForJob(job_id);
+          return job.status === "completed";
+        } catch {
+          return false;
+        } finally {
+          setIndexingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(doc.id);
+            return next;
+          });
+        }
+      }),
+    );
+    const success = results.filter(Boolean).length;
+    toast.success(`Indexed ${success}/${toIndex.length} documents`);
     await refresh();
   }
 
@@ -173,9 +182,18 @@ export function DocumentsPage() {
   ) {
     setIndexingIds((prev) => new Set(prev).add(id));
     try {
-      await indexDocument(id, options);
-      toast.success("Indexing complete", { description: "Document has been indexed with embeddings." });
+      const { job_id } = await indexDocument(id, options);
+      toast.info("Indexing started", { description: "Chunking and embedding run in the background." });
       await refresh();
+      const job = await waitForJob(job_id);
+      await refresh();
+      if (job.status === "completed") {
+        toast.success("Indexing complete", { description: "Document has been indexed with embeddings." });
+      } else {
+        const msg = job.error_message ?? "Indexing failed";
+        setError(msg);
+        toast.error("Indexing failed", { description: msg });
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Indexing failed";
       setError(msg);

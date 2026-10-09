@@ -3,14 +3,13 @@ import uuid
 from fastapi import APIRouter, Depends, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.openai_client import LLMClient
 from app.clients.qdrant_client import VectorStoreClient
 from app.core.auth import get_current_tenant, get_tenant_id, require_tenant
 from app.core.rate_limit import limiter
 from app.core.database import get_db
-from app.core.dependencies import get_llm_client, get_vector_store
+from app.core.dependencies import get_vector_store
 from app.models.tenant import Tenant
-from app.schemas.document import DocumentListOut, DocumentOut, IndexRequest
+from app.schemas.document import DocumentListOut, DocumentOut, IndexingJobOut, IndexRequest
 from app.services.document_service import DocumentService
 
 router = APIRouter()
@@ -28,7 +27,12 @@ async def upload_document(
     return await service.upload(file, tenant_id=tenant.id)
 
 
-@router.post("/{document_id}/index", response_model=DocumentOut, summary="Index document")
+@router.post(
+    "/{document_id}/index",
+    response_model=IndexingJobOut,
+    status_code=202,
+    summary="Queue document indexing",
+)
 @limiter.limit("10/minute")
 async def index_document(
     request: Request,
@@ -36,13 +40,12 @@ async def index_document(
     body: IndexRequest | None = None,
     db: AsyncSession = Depends(get_db),
     tenant: Tenant = Depends(require_tenant),
-    llm: LLMClient = Depends(get_llm_client),
-    vector_store: VectorStoreClient = Depends(get_vector_store),
-) -> DocumentOut:
+) -> IndexingJobOut:
+    """Chunking and embedding run on the worker; poll GET /jobs/{job_id}."""
     req = body or IndexRequest()
     service = DocumentService(db)
     return await service.start_indexing(
-        document_id, llm, vector_store,
+        document_id,
         chunk_strategy=req.chunk_strategy,
         max_tokens=req.max_tokens,
         overlap_tokens=req.overlap_tokens,

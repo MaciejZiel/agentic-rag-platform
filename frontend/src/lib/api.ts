@@ -267,10 +267,50 @@ export async function getDocument(id: string): Promise<Document> {
   return res.json();
 }
 
+export interface Job {
+  id: string;
+  job_type: string;
+  status: "pending" | "running" | "completed" | "failed";
+  result: unknown;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IndexingJob {
+  job_id: string;
+  status: Job["status"];
+  document: Document;
+}
+
+export async function getJob(id: string): Promise<Job> {
+  const res = await authFetch(`${BASE}/jobs/${id}`);
+  if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
+  return res.json();
+}
+
+/**
+ * Poll a background job until it finishes. Resolves with the finished job
+ * (completed or failed); rejects only if polling itself fails or times out.
+ */
+export async function waitForJob(
+  id: string,
+  { intervalMs = 2000, timeoutMs = 10 * 60_000 }: { intervalMs?: number; timeoutMs?: number } = {},
+): Promise<Job> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const job = await getJob(id);
+    if (job.status === "completed" || job.status === "failed") return job;
+    if (Date.now() >= deadline) throw new Error("Timed out waiting for the job to finish");
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+}
+
+/** Queue indexing on the worker; use waitForJob(result.job_id) for the outcome. */
 export async function indexDocument(
   id: string,
   options?: { chunk_strategy?: string; max_tokens?: number; overlap_tokens?: number },
-): Promise<Document> {
+): Promise<IndexingJob> {
   const res = await authFetch(`${BASE}/documents/${id}/index`, {
     method: "POST",
     headers: options ? { "Content-Type": "application/json" } : {},

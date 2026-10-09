@@ -23,6 +23,14 @@ class DocumentListOut(BaseModel):
     total: int
 
 
+class IndexingJobOut(BaseModel):
+    """Returned when indexing is queued; poll GET /jobs/{job_id} for progress."""
+
+    job_id: uuid.UUID
+    status: str
+    document: DocumentOut
+
+
 class IndexRequest(BaseModel):
     chunk_strategy: str = Field(
         default="fixed_size",
