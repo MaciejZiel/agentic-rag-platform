@@ -54,7 +54,15 @@ jobs:
             --tb=short -q --cov=app --cov-report=term-missing
 
       - name: Check migrations
-        run: python -c "from alembic.config import Config; from alembic import command; command.check(Config('alembic.ini'))" || true
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: rag_user
+          POSTGRES_PASSWORD: rag_password
+          POSTGRES_DB: rag_platform
+        run: |
+          alembic upgrade head
+          alembic check
 
   frontend:
     runs-on: ubuntu-latest
@@ -75,8 +83,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type check
-        run: npx tsc --noEmit
+      - name: Type check and build
+        run: npm run build
 
-      - name: Build
-        run: npx vite build
+      - name: Run tests
+        run: npm test
