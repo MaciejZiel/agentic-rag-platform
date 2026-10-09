@@ -1,8 +1,8 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_tenant_id, require_tenant
@@ -64,19 +64,26 @@ def _to_out(a: Assistant) -> AssistantOut:
 
 @router.get("", response_model=AssistantListOut, summary="List assistants")
 async def list_assistants(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     tenant: Tenant = Depends(require_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> AssistantListOut:
     tid = get_tenant_id(tenant)
+    total = (await db.execute(
+        select(func.count(Assistant.id)).where(Assistant.tenant_id == tid)
+    )).scalar_one()
     result = await db.execute(
         select(Assistant)
         .where(Assistant.tenant_id == tid)
         .order_by(Assistant.created_at.desc())
+        .offset(skip)
+        .limit(limit)
     )
     assistants = result.scalars().all()
     return AssistantListOut(
         assistants=[_to_out(a) for a in assistants],
-        total=len(assistants),
+        total=total,
     )
 
 

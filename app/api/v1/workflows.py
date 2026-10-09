@@ -1,9 +1,9 @@
 import json
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_tenant_id, require_tenant
@@ -60,19 +60,26 @@ def _to_out(w: Workflow) -> WorkflowOut:
 
 @router.get("", response_model=WorkflowListOut, summary="List workflows")
 async def list_workflows(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     tenant: Tenant = Depends(require_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> WorkflowListOut:
     tid = get_tenant_id(tenant)
+    total = (await db.execute(
+        select(func.count(Workflow.id)).where(Workflow.tenant_id == tid)
+    )).scalar_one()
     result = await db.execute(
         select(Workflow)
         .where(Workflow.tenant_id == tid)
         .order_by(Workflow.created_at.desc())
+        .offset(skip)
+        .limit(limit)
     )
     workflows = result.scalars().all()
     return WorkflowListOut(
         workflows=[_to_out(w) for w in workflows],
-        total=len(workflows),
+        total=total,
     )
 
 

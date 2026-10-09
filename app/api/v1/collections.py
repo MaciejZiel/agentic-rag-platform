@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -34,20 +34,27 @@ def _to_out(c: Collection) -> CollectionOut:
 
 @router.get("", response_model=CollectionListOut, summary="List collections")
 async def list_collections(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     tenant: Tenant = Depends(require_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> CollectionListOut:
     tid = get_tenant_id(tenant)
+    total = (await db.execute(
+        select(func.count(Collection.id)).where(Collection.tenant_id == tid)
+    )).scalar_one()
     result = await db.execute(
         select(Collection)
         .options(selectinload(Collection.documents))
         .where(Collection.tenant_id == tid)
         .order_by(Collection.created_at.desc())
+        .offset(skip)
+        .limit(limit)
     )
     collections = result.scalars().all()
     return CollectionListOut(
         collections=[_to_out(c) for c in collections],
-        total=len(collections),
+        total=total,
     )
 
 

@@ -2,9 +2,9 @@ import uuid
 from ipaddress import ip_address
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_tenant
@@ -73,17 +73,30 @@ async def create_webhook(
     return WebhookOut.model_validate(wh)
 
 
-@router.get("", response_model=list[WebhookOut])
+class WebhookListOut(BaseModel):
+    webhooks: list[WebhookOut]
+    total: int
+
+
+@router.get("", response_model=WebhookListOut, summary="List webhooks")
 async def list_webhooks(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     tenant: Tenant = Depends(require_tenant),
-) -> list[WebhookOut]:
-    query = select(Webhook).where(
+) -> WebhookListOut:
+    base = select(Webhook).where(
         Webhook.is_active.is_(True),
         Webhook.tenant_id == tenant.id,
     )
-    result = await db.execute(query)
-    return [WebhookOut.model_validate(w) for w in result.scalars().all()]
+    total = (await db.execute(
+        select(func.count()).select_from(base.subquery())
+    )).scalar_one()
+    result = await db.execute(base.offset(skip).limit(limit))
+    return WebhookListOut(
+        webhooks=[WebhookOut.model_validate(w) for w in result.scalars().all()],
+        total=total,
+    )
 
 
 @router.delete("/{webhook_id}", status_code=204, summary="Delete webhook")

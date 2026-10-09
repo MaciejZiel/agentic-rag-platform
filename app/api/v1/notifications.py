@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +30,8 @@ class NotificationListOut(BaseModel):
 
 @router.get("", response_model=NotificationListOut, summary="List notifications")
 async def list_notifications(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     tenant: Tenant = Depends(require_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> NotificationListOut:
@@ -38,7 +40,8 @@ async def list_notifications(
         select(Notification)
         .where(Notification.tenant_id == tid)
         .order_by(Notification.created_at.desc())
-        .limit(50)
+        .offset(skip)
+        .limit(limit)
     )
     notifications = result.scalars().all()
 
