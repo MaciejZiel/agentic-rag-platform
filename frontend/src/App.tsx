@@ -80,7 +80,8 @@ const navItems = [
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [needs2FA, setNeeds2FA] = useState(false);
+  // Set after a password sign-in on a 2FA account; no tokens exist yet.
+  const [challenge, setChallenge] = useState<{ token: string; email: string } | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -93,15 +94,6 @@ export default function App() {
     }
     authGetMe()
       .then((u) => {
-        if (u.is_2fa_enabled) {
-          const verified = sessionStorage.getItem("2fa_verified") === "true";
-          if (!verified) {
-            setNeeds2FA(true);
-            setUser(u);
-            setLoading(false);
-            return;
-          }
-        }
         setUser(u);
         if (!isOnboardingComplete()) setShowOnboarding(true);
         setLoading(false);
@@ -116,13 +108,8 @@ export default function App() {
     setLoading(true);
     authGetMe()
       .then((u) => {
-        if (u.is_2fa_enabled) {
-          setNeeds2FA(true);
-          setUser(u);
-        } else {
-          setUser(u);
-          if (!isOnboardingComplete()) setShowOnboarding(true);
-        }
+        setUser(u);
+        if (!isOnboardingComplete()) setShowOnboarding(true);
       })
       .catch(() => {
         clearTokens();
@@ -131,16 +118,14 @@ export default function App() {
   }
 
   function handle2FAVerified() {
-    setNeeds2FA(false);
-    sessionStorage.setItem("2fa_verified", "true");
-    if (!isOnboardingComplete()) setShowOnboarding(true);
+    setChallenge(null);
+    handleLoginSuccess();
   }
 
   function handleLogout() {
     setUser(null);
-    setNeeds2FA(false);
+    setChallenge(null);
     clearTokens();
-    sessionStorage.removeItem("2fa_verified");
   }
 
   // Loading spinner
@@ -152,18 +137,24 @@ export default function App() {
     );
   }
 
-  // Not logged in
-  if (!user) {
-    return <LoginPage onLogin={handleLoginSuccess} />;
-  }
-
-  // Logged in but 2FA not verified
-  if (needs2FA) {
+  // Password accepted, second factor still required
+  if (!user && challenge) {
     return (
       <TwoFactorVerify
-        email={user.email}
+        challengeToken={challenge.token}
+        email={challenge.email}
         onVerified={handle2FAVerified}
         onCancel={handleLogout}
+      />
+    );
+  }
+
+  // Not logged in
+  if (!user) {
+    return (
+      <LoginPage
+        onLogin={handleLoginSuccess}
+        onTwoFactorRequired={(token, email) => setChallenge({ token, email })}
       />
     );
   }

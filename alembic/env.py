@@ -13,7 +13,7 @@ from app.models.query import ChatQuery, ExtractionRequest  # noqa: F401
 from app.models.tenant import Tenant, ApiKey  # noqa: F401
 from app.models.conversation import Conversation, ConversationMessage  # noqa: F401
 from app.models.webhook import Webhook  # noqa: F401
-from app.models.user import User  # noqa: F401
+from app.models.user import RecoveryCode, User  # noqa: F401
 from app.models.collection import Collection, collection_documents  # noqa: F401
 from app.models.notification import Notification  # noqa: F401
 from app.models.assistant import Assistant  # noqa: F401

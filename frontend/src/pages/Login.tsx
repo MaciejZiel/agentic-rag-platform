@@ -43,12 +43,13 @@ import { loginSchema, registerSchema } from "@/lib/schemas";
 
 interface Props {
   onLogin: () => void;
+  onTwoFactorRequired: (challengeToken: string, email: string) => void;
 }
 
 type AccountType = "personal" | "organization";
 type RegisterStep = "type" | "details" | "verify-email" | "done";
 
-export function LoginPage({ onLogin }: Props) {
+export function LoginPage({ onLogin, onTwoFactorRequired }: Props) {
   usePageTitle("Sign In");
   const [tab, setTab] = useState<"login" | "register">("login");
 
@@ -97,6 +98,10 @@ export function LoginPage({ onLogin }: Props) {
 
     try {
       const result = await authLogin(loginEmail, loginPassword);
+      if (result.two_factor_required) {
+        onTwoFactorRequired(result.challenge_token, loginEmail);
+        return;
+      }
       setTokens(result.access_token, result.refresh_token);
       onLogin();
     } catch (e) {

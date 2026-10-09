@@ -120,10 +120,11 @@ export async function authVerifyEmail(
   return res.json();
 }
 
-export async function authLogin(
-  email: string,
-  password: string,
-): Promise<{ access_token: string; refresh_token: string }> {
+export type LoginResult =
+  | { two_factor_required: false; access_token: string; refresh_token: string }
+  | { two_factor_required: true; challenge_token: string };
+
+export async function authLogin(email: string, password: string): Promise<LoginResult> {
   const res = await fetch(`${BASE}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -142,14 +143,15 @@ export async function authGetMe(): Promise<AuthUser> {
   return res.json();
 }
 
+/** Complete a 2FA sign-in: exchange the login challenge and a code for tokens. */
 export async function authVerify2FA(
-  email: string,
+  challengeToken: string,
   code: string,
-): Promise<{ message: string }> {
-  const res = await fetch(`${BASE}/auth/verify-2fa`, {
+): Promise<{ access_token: string; refresh_token: string }> {
+  const res = await fetch(`${BASE}/auth/2fa/verify`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, code }),
+    body: JSON.stringify({ challenge_token: challengeToken, code }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
@@ -157,6 +159,39 @@ export async function authVerify2FA(
   }
   return res.json();
 }
+
+export interface TwoFactorStatus {
+  enabled: boolean;
+  recovery_codes_remaining: number;
+}
+
+export interface TwoFactorSetup {
+  secret: string;
+  otpauth_uri: string;
+  qr_svg: string;
+}
+
+async function twoFactorRequest<T>(path: string, body?: unknown): Promise<T> {
+  const res = await authFetch(`${BASE}/auth/2fa${path}`, {
+    method: body === undefined && path === "" ? "GET" : "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail ?? "Request failed");
+  }
+  return res.json();
+}
+
+export const get2FAStatus = () => twoFactorRequest<TwoFactorStatus>("");
+export const start2FASetup = () => twoFactorRequest<TwoFactorSetup>("/setup", {});
+export const enable2FA = (code: string) =>
+  twoFactorRequest<{ recovery_codes: string[] }>("/enable", { code });
+export const disable2FA = (password: string, code: string) =>
+  twoFactorRequest<{ message: string }>("/disable", { password, code });
+export const regenerateRecoveryCodes = (code: string) =>
+  twoFactorRequest<{ recovery_codes: string[] }>("/recovery-codes", { code });
 
 export async function authResendCode(email: string): Promise<void> {
   await fetch(`${BASE}/auth/resend-code`, {

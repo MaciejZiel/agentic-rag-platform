@@ -6,11 +6,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import generate_api_key
+from app.core.rate_limit import limiter
+from app.services import two_factor_service as tfa
 from app.services.email_service import send_verification_email
 from app.core.database import get_db
 from app.core.security import (
     create_access_token,
     create_refresh_token,
+    create_two_factor_challenge,
     decode_token,
     generate_verification_code,
     hash_password,
@@ -20,10 +23,17 @@ from app.models.tenant import ApiKey, Tenant
 from app.models.user import User
 from app.schemas.auth import (
     LoginRequest,
+    LoginResponse,
     MessageResponse,
+    RecoveryCodesResponse,
     RefreshRequest,
     RegisterRequest,
     TokenResponse,
+    TwoFactorCodeRequest,
+    TwoFactorDisableRequest,
+    TwoFactorSetupResponse,
+    TwoFactorStatusResponse,
+    TwoFactorVerifyRequest,
     UserResponse,
     VerifyEmailRequest,
 )
@@ -144,12 +154,16 @@ async def verify_email(
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
-@router.post("/login", response_model=TokenResponse, summary="Sign in")
+@router.post("/login", response_model=LoginResponse, summary="Sign in")
 async def login(
     request: LoginRequest,
     db: AsyncSession = Depends(get_db),
-) -> TokenResponse:
-    """Authenticate with email and password."""
+) -> LoginResponse:
+    """Authenticate with email and password.
+
+    With 2FA enabled no tokens are issued here: the response carries a
+    short-lived challenge token to be completed at /auth/2fa/verify.
+    """
     result = await db.execute(select(User).where(User.email == request.email.lower()))
     user = result.scalar_one_or_none()
 
@@ -172,10 +186,15 @@ async def login(
             detail="Email not verified. A new verification code has been sent.",
         )
 
-    access_token = create_access_token(user.id, user.tenant_id)
-    refresh_token = create_refresh_token(user.id, user.tenant_id)
+    if user.is_2fa_enabled:
+        return LoginResponse(
+            two_factor_required=True, challenge_token=create_two_factor_challenge(user.id),
+        )
 
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+    return LoginResponse(
+        access_token=create_access_token(user.id, user.tenant_id),
+        refresh_token=create_refresh_token(user.id, user.tenant_id),
+    )
 
 
 @router.post("/refresh", response_model=TokenResponse, summary="Refresh access token")
@@ -221,34 +240,6 @@ async def get_me(
     )
 
 
-@router.post("/verify-2fa", response_model=MessageResponse, summary="Verify two-factor code")
-async def verify_two_factor(
-    request: VerifyEmailRequest,
-    db: AsyncSession = Depends(get_db),
-) -> MessageResponse:
-    """Verify 2FA TOTP code. Uses the email field to find user, code field for TOTP."""
-    result = await db.execute(select(User).where(User.email == request.email.lower()))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials.")
-
-    if not user.is_2fa_enabled or not user.totp_secret:
-        raise HTTPException(status_code=400, detail="2FA is not enabled for this account.")
-
-    # Verify TOTP code
-    try:
-        import pyotp
-        totp = pyotp.TOTP(user.totp_secret)
-        if not totp.verify(request.code, valid_window=1):
-            raise HTTPException(status_code=401, detail="Invalid verification code.")
-    except ImportError:
-        # pyotp not installed — accept code if it matches a backup pattern
-        if len(request.code) != 6 or not request.code.isdigit():
-            raise HTTPException(status_code=401, detail="Invalid verification code.")
-
-    return MessageResponse(message="2FA verification successful.")
-
-
 @router.post("/resend-code", response_model=MessageResponse, summary="Resend verification code")
 async def resend_verification_code(
     request: VerifyEmailRequest,
@@ -271,3 +262,134 @@ async def resend_verification_code(
     await send_verification_email(user.email, verification_code, user.full_name)
 
     return MessageResponse(message="If an account exists, a new code has been sent.")
+
+
+# ─── Two-factor authentication (TOTP) ────────────────────────────
+
+
+@router.post("/2fa/verify", response_model=TokenResponse, summary="Complete sign-in with 2FA")
+@limiter.limit("10/minute")
+async def verify_two_factor(
+    request: Request,
+    body: TwoFactorVerifyRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    """Exchange a login challenge plus a TOTP or recovery code for tokens."""
+    try:
+        payload = decode_token(body.challenge_token)
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Sign-in expired. Please sign in again.")
+    if payload.get("type") != "2fa_challenge":
+        raise HTTPException(status_code=401, detail="Invalid token type.")
+
+    result = await db.execute(
+        select(User).where(User.id == uuid.UUID(payload["sub"]), User.is_active.is_(True))
+    )
+    user = result.scalar_one_or_none()
+    if not user or not user.is_2fa_enabled:
+        raise HTTPException(status_code=401, detail="Sign-in expired. Please sign in again.")
+
+    await tfa.check_second_factor(db, user, body.code)
+
+    return TokenResponse(
+        access_token=create_access_token(user.id, user.tenant_id),
+        refresh_token=create_refresh_token(user.id, user.tenant_id),
+    )
+
+
+@router.get("/2fa", response_model=TwoFactorStatusResponse, summary="Get 2FA status")
+async def two_factor_status(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> TwoFactorStatusResponse:
+    remaining = await tfa.count_unused_recovery_codes(db, user) if user.is_2fa_enabled else 0
+    return TwoFactorStatusResponse(enabled=user.is_2fa_enabled, recovery_codes_remaining=remaining)
+
+
+@router.post("/2fa/setup", response_model=TwoFactorSetupResponse, summary="Start 2FA enrolment")
+@limiter.limit("10/minute")
+async def setup_two_factor(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> TwoFactorSetupResponse:
+    """Generate a new (not yet active) TOTP secret for the authenticator app."""
+    if user.is_2fa_enabled:
+        raise HTTPException(status_code=409, detail="Two-factor authentication is already enabled.")
+    user.totp_secret = tfa.new_secret()
+    user.totp_last_used_step = None
+    await db.commit()
+    uri = tfa.provisioning_uri(user.totp_secret, user.email)
+    return TwoFactorSetupResponse(
+        secret=user.totp_secret, otpauth_uri=uri, qr_svg=tfa.qr_svg_data_uri(uri),
+    )
+
+
+@router.post(
+    "/2fa/enable", response_model=RecoveryCodesResponse, summary="Confirm and enable 2FA",
+)
+@limiter.limit("10/minute")
+async def enable_two_factor(
+    request: Request,
+    body: TwoFactorCodeRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> RecoveryCodesResponse:
+    """Activate 2FA once the user proves the app produces valid codes.
+
+    Returns the recovery codes; this is the only time they are shown.
+    """
+    if user.is_2fa_enabled:
+        raise HTTPException(status_code=409, detail="Two-factor authentication is already enabled.")
+    if not user.totp_secret:
+        raise HTTPException(status_code=400, detail="Start the setup first.")
+    await tfa.check_second_factor(db, user, body.code, allow_recovery=False)
+
+    user.is_2fa_enabled = True
+    codes = await tfa.replace_recovery_codes(db, user)
+    await db.commit()
+    return RecoveryCodesResponse(recovery_codes=codes)
+
+
+@router.post("/2fa/disable", response_model=MessageResponse, summary="Disable 2FA")
+@limiter.limit("10/minute")
+async def disable_two_factor(
+    request: Request,
+    body: TwoFactorDisableRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MessageResponse:
+    """Requires both the password and a current TOTP or recovery code."""
+    if not user.is_2fa_enabled:
+        raise HTTPException(status_code=400, detail="Two-factor authentication is not enabled.")
+    if not verify_password(body.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid password.")
+    await tfa.check_second_factor(db, user, body.code)
+
+    user.is_2fa_enabled = False
+    user.totp_secret = None
+    user.totp_last_used_step = None
+    await tfa.delete_recovery_codes(db, user)
+    await db.commit()
+    return MessageResponse(message="Two-factor authentication disabled.")
+
+
+@router.post(
+    "/2fa/recovery-codes",
+    response_model=RecoveryCodesResponse,
+    summary="Regenerate recovery codes",
+)
+@limiter.limit("10/minute")
+async def regenerate_recovery_codes(
+    request: Request,
+    body: TwoFactorCodeRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> RecoveryCodesResponse:
+    """Invalidate all previous recovery codes and issue a new set."""
+    if not user.is_2fa_enabled:
+        raise HTTPException(status_code=400, detail="Two-factor authentication is not enabled.")
+    await tfa.check_second_factor(db, user, body.code)
+    codes = await tfa.replace_recovery_codes(db, user)
+    await db.commit()
+    return RecoveryCodesResponse(recovery_codes=codes)
