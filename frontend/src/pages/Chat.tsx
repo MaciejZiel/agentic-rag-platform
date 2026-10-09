@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
+import { formatDate } from "@/lib/date";
 import { Send, Loader2, FileText, Sparkles, RotateCcw, GitBranch, History, Trash2 } from "lucide-react";
 import Markdown from "react-markdown";
 import { Button } from "@/components/ui/button";
@@ -31,6 +33,7 @@ interface Message {
 }
 
 export function ChatPage() {
+  usePageTitle("Chat");
   const [docs, setDocs] = useState<Document[]>([]);
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
   const [messages, setMessages] = useState<Message[]>([]);
@@ -195,7 +198,7 @@ export function ChatPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium truncate">{conv.title}</p>
                     <p className="text-[10px] text-muted-foreground">
-                      {new Date(conv.updated_at).toLocaleDateString()}
+                      {formatDate(conv.updated_at)}
                     </p>
                   </div>
                   <button

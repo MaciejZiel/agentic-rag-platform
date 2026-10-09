@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { Play, Copy, Check, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,6 +57,7 @@ const METHOD_COLORS: Record<string, string> = {
 };
 
 export function PlaygroundPage() {
+  usePageTitle("API Playground");
   const [method, setMethod] = useState("GET");
   const [path, setPath] = useState("/api/v1/documents");
   const [body, setBody] = useState("");

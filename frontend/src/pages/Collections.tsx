@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   FolderOpen,
   Plus,
@@ -7,6 +8,7 @@ import {
   Pencil,
   X,
   Check,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +39,7 @@ const COLORS = [
 ];
 
 export function CollectionsPage() {
+  usePageTitle("Collections");
   const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [docs, setDocs] = useState<Document[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -47,20 +50,33 @@ export function CollectionsPage() {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const [colls, docData] = await Promise.all([
-      listCollections(),
-      listDocuments(),
-    ]);
-    setCollections(colls.collections);
-    setDocs(docData.documents);
+    try {
+      const [colls, docData] = await Promise.all([
+        listCollections(),
+        listDocuments(),
+      ]);
+      setCollections(colls.collections);
+      setDocs(docData.documents);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   async function handleCreate() {
     if (!createName.trim()) return;

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { Shield, ArrowRight, KeyRound, Mail } from "lucide-react";
 import { authVerify2FA } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function TwoFactorVerify({ email, onVerified, onCancel }: Props) {
+  usePageTitle("Two-Factor Authentication");
   const [method, setMethod] = useState<"totp" | "backup">("totp");
   const [otpValue, setOtpValue] = useState("");
   const [backupCode, setBackupCode] = useState("");

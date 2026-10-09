@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
+import { formatDate } from "@/lib/date";
 import {
   ShieldCheck,
   Users,
@@ -31,6 +33,7 @@ function StatMini({ label, value, icon: Icon }: { label: string; value: string |
 }
 
 export function AdminPage() {
+  usePageTitle("Admin");
   const [data, setData] = useState<AdminOverview | null>(null);
 
   useEffect(() => {
@@ -157,7 +160,7 @@ export function AdminPage() {
                         )}
                       </td>
                       <td className="py-2 text-muted-foreground">
-                        {new Date(u.created_at).toLocaleDateString()}
+                        {formatDate(u.created_at)}
                       </td>
                     </tr>
                   ))}

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
+import { formatDate } from "@/lib/date";
 import {
   Settings,
   Key,
@@ -13,6 +15,7 @@ import {
   User,
   Mail,
   Building2,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +47,7 @@ interface Props {
 }
 
 export function SettingsPage({ user, onUserUpdate }: Props) {
+  usePageTitle("Settings");
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [defaultModel, setDefaultModel] = useState("");
   const [chunkStrategy, setChunkStrategy] = useState("fixed_size");
@@ -60,7 +64,7 @@ export function SettingsPage({ user, onUserUpdate }: Props) {
 
   // API key management
   const [apiKeys] = useState<Array<{ id: string; prefix: string; label: string; created: string }>>([
-    { id: "1", prefix: "rag_••••••••", label: "Default Key", created: user.created_at.split("T")[0] },
+    { id: "1", prefix: "rag_••••••••", label: "Default Key", created: formatDate(user.created_at) },
   ]);
   const [showKey, setShowKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -68,18 +72,29 @@ export function SettingsPage({ user, onUserUpdate }: Props) {
   // Webhooks
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhooks, setWebhooks] = useState<Array<{ id: string; url: string; event_type?: string }>>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    listModels()
-      .then((res) => {
-        setModels(res.models);
-        setDefaultModel(res.default);
-      })
-      .catch(() => toast.error("Failed to load models"));
-    listWebhooks()
-      .then(setWebhooks)
-      .catch(() => toast.error("Failed to load webhooks"));
+    Promise.all([
+      listModels()
+        .then((res) => {
+          setModels(res.models);
+          setDefaultModel(res.default);
+        })
+        .catch(() => toast.error("Failed to load models")),
+      listWebhooks()
+        .then(setWebhooks)
+        .catch(() => toast.error("Failed to load webhooks")),
+    ]).finally(() => setLoading(false));
   }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   function handleCopyKey(prefix: string) {
     navigator.clipboard.writeText(prefix + "...");

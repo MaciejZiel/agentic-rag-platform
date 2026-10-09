@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
+import { formatDateTime } from "@/lib/date";
 import {
   Upload,
   FileText,
@@ -43,11 +45,8 @@ function formatSize(bytes: number) {
   return `${(bytes / 1048576).toFixed(1)} MB`;
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString();
-}
-
 export function DocumentsPage() {
+  usePageTitle("Documents");
   const [docs, setDocs] = useState<Document[]>([]);
   const [total, setTotal] = useState(0);
   const [uploading, setUploading] = useState(false);
@@ -309,7 +308,7 @@ export function DocumentsPage() {
                   <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                     <span>{formatSize(doc.file_size)}</span>
                     <span>{doc.chunk_count} chunks</span>
-                    <span>{formatDate(doc.created_at)}</span>
+                    <span>{formatDateTime(doc.created_at)}</span>
                   </div>
                   {doc.error_message && (
                     <p className="text-xs text-destructive mt-1 truncate">

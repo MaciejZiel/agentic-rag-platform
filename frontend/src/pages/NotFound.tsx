@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
 import { Home, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export function NotFoundPage() {
+  usePageTitle("Page Not Found");
   return (
     <div className="flex items-center justify-center min-h-[80vh] p-8">
       <div className="text-center space-y-6 max-w-md">

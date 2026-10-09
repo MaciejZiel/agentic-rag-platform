@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
+import { formatDate } from "@/lib/date";
 import {
   Bot,
   Plus,
@@ -8,6 +10,7 @@ import {
   Check,
   Thermometer,
   Cpu,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,10 +42,12 @@ const ICON_MAP: Record<string, string> = {
 };
 
 export function AssistantsPage() {
+  usePageTitle("Assistants");
   const [assistants, setAssistants] = useState<AssistantItem[]>([]);
   const [selected, setSelected] = useState<AssistantItem | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Form state
@@ -54,13 +59,25 @@ export function AssistantsPage() {
   const [icon, setIcon] = useState("bot");
 
   const refresh = useCallback(async () => {
-    const data = await listAssistants();
-    setAssistants(data.assistants);
+    try {
+      const data = await listAssistants();
+      setAssistants(data.assistants);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   function resetForm() {
     setName("");
@@ -329,7 +346,7 @@ export function AssistantsPage() {
                   <div>
                     <p className="text-xs text-muted-foreground">Created</p>
                     <span className="text-xs">
-                      {new Date(selected.created_at).toLocaleDateString()}
+                      {formatDate(selected.created_at)}
                     </span>
                   </div>
                 </div>

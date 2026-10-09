@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Braces,
   FileText,
@@ -34,6 +35,7 @@ const EXAMPLE_SCHEMA = JSON.stringify(
 );
 
 export function ExtractPage() {
+  usePageTitle("Extract");
   const [docs, setDocs] = useState<Document[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
   const [schema, setSchema] = useState(EXAMPLE_SCHEMA);

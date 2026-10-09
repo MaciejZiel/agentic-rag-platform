@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { formatDateTime } from "@/lib/date";
 import { type Document } from "@/lib/api";
 
 interface Chunk {
@@ -197,7 +198,7 @@ export function DocumentDetail({ document: doc, open, onClose, highlightChunks =
                       </div>
                       <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                         <Clock className="h-2.5 w-2.5" />
-                        {new Date(chunk.created_at).toLocaleString()}
+                        {formatDateTime(chunk.created_at)}
                       </span>
                     </div>
                     <p className="text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">

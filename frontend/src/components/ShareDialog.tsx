@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AnimatedDialog } from "@/components/AnimatedDialog";
 import { type ShareLinkOut, createShareLink } from "@/lib/api";
+import { formatDateTime } from "@/lib/date";
 import { toast } from "sonner";
 
 interface Props {
@@ -131,7 +132,7 @@ export function ShareDialog({ documentId, filename, open, onClose }: Props) {
                 </div>
                 {link.expires_at && (
                   <p className="text-[10px] text-muted-foreground">
-                    Expires {new Date(link.expires_at).toLocaleString()}
+                    Expires {formatDateTime(link.expires_at)}
                   </p>
                 )}
               </div>

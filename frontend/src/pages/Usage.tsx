@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
+import { formatDateTime, formatTime } from "@/lib/date";
 import {
   BarChart3,
   MessageSquare,
@@ -96,13 +98,14 @@ const columns: ColumnDef<QueryRow>[] = [
     ),
     cell: ({ row }) => (
       <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-        {new Date(row.original.created_at).toLocaleString()}
+        {formatDateTime(row.original.created_at)}
       </span>
     ),
   },
 ];
 
 export function UsagePage() {
+  usePageTitle("Usage");
   const [queries, setQueries] = useState<Array<{
     id: string;
     question: string;
@@ -253,7 +256,7 @@ export function UsagePage() {
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Gauge className="h-4 w-4" /> Rate Limits
               <span className="text-xs text-muted-foreground font-normal ml-auto">
-                Resets {new Date(rateLimits.resets_at).toLocaleTimeString()}
+                Resets {formatTime(rateLimits.resets_at)}
               </span>
             </CardTitle>
           </CardHeader>

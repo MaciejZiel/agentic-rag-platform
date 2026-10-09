@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   LogIn,
   UserPlus,
@@ -48,6 +49,7 @@ type AccountType = "personal" | "organization";
 type RegisterStep = "type" | "details" | "verify-email" | "done";
 
 export function LoginPage({ onLogin }: Props) {
+  usePageTitle("Sign In");
   const [tab, setTab] = useState<"login" | "register">("login");
 
   // Login state
@@ -88,7 +90,7 @@ export function LoginPage({ onLogin }: Props) {
     setError(null);
     const parsed = loginSchema.safeParse({ email: loginEmail, password: loginPassword });
     if (!parsed.success) {
-      setError(parsed.error.errors[0].message);
+      setError(parsed.error.issues[0].message);
       return;
     }
     setLoading(true);
@@ -120,7 +122,7 @@ export function LoginPage({ onLogin }: Props) {
       accountType,
     });
     if (!parsed.success) {
-      setError(parsed.error.errors[0].message);
+      setError(parsed.error.issues[0].message);
       return;
     }
 
