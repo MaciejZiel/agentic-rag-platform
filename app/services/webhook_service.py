@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import uuid
 from datetime import datetime, timezone
 
 import httpx
@@ -17,10 +18,11 @@ class WebhookService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def fire_event(self, event_type: str, payload: dict) -> None:
-        """Fire webhook notifications for the given event type."""
+    async def fire_event(self, event_type: str, tenant_id: uuid.UUID, payload: dict) -> None:
+        """Fire the tenant's webhook subscriptions for the given event type."""
         result = await self.db.execute(
             select(Webhook).where(
+                Webhook.tenant_id == tenant_id,
                 Webhook.is_active.is_(True),
                 (Webhook.event_type == event_type) | (Webhook.event_type == "*"),
             )
@@ -47,7 +49,7 @@ class WebhookService:
                     resp = await client.post(wh.url, content=body, headers=headers)
                     logger.info(
                         "webhook_sent",
-                        url=wh.url, event=event_type, status=resp.status_code,
+                        url=wh.url, event_type=event_type, status=resp.status_code,
                     )
                 except Exception as e:
-                    logger.error("webhook_failed", url=wh.url, event=event_type, error=str(e))
+                    logger.error("webhook_failed", url=wh.url, event_type=event_type, error=str(e))

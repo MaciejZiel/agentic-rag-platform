@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.logging import get_logger
+from app.models.document import Document
 from app.models.job import Job, JobStatus, JobType
 from app.repositories.job_repository import JobRepository
 from app.schemas.job import JobCreateRequest, JobOut
@@ -17,12 +18,24 @@ class JobService:
         self.db = db
         self.repo = JobRepository(db)
 
-    async def create_job(self, request: JobCreateRequest) -> JobOut:
+    async def _require_own_document(self, payload: dict, tenant_id: uuid.UUID) -> None:
+        """Both job types act on a document; it must belong to the caller."""
+        try:
+            document_id = uuid.UUID(str(payload.get("document_id")))
+        except ValueError:
+            raise ValidationError("payload.document_id must be a document UUID") from None
+        doc = await self.db.get(Document, document_id)
+        if doc is None or doc.tenant_id != tenant_id:
+            raise NotFoundError("Document", document_id)
+
+    async def create_job(self, request: JobCreateRequest, tenant_id: uuid.UUID) -> JobOut:
         valid_types = {t.value for t in JobType}
         if request.job_type not in valid_types:
             raise ValidationError(f"Invalid job type. Must be one of: {valid_types}")
+        await self._require_own_document(request.payload, tenant_id)
 
         job = Job(
+            tenant_id=tenant_id,
             job_type=request.job_type,
             status=JobStatus.PENDING,
             payload=json.dumps(request.payload),
@@ -38,8 +51,8 @@ class JobService:
         logger.info("job_created", job_id=str(job.id), job_type=request.job_type)
         return JobOut.model_validate(job)
 
-    async def get_job(self, job_id: uuid.UUID) -> JobOut:
-        job = await self.repo.get_by_id(job_id)
+    async def get_job(self, job_id: uuid.UUID, tenant_id: uuid.UUID) -> JobOut:
+        job = await self.repo.get_for_tenant(job_id, tenant_id)
         if not job:
             raise NotFoundError("Job", job_id)
         return JobOut.model_validate(job)

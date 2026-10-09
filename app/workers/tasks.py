@@ -80,7 +80,7 @@ def run_job_task(self, job_id: str) -> dict:
 
                     service = ExtractionService(session, get_llm_client())
                     req = ExtractionRequest(**payload)
-                    resp = await service.extract(req)
+                    resp = await service.extract(req, tenant_id=job.tenant_id)
                     await repo.update_status(
                         job.id,
                         JobStatus.COMPLETED,

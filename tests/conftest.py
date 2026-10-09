@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 from collections.abc import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, MagicMock
 
@@ -63,9 +64,11 @@ def mock_vector_store() -> VectorStoreClient:
 
 
 @pytest.fixture
-def mock_tenant(db_session: AsyncSession) -> Tenant:
-    """Create a mock tenant for auth-protected endpoints."""
-    tenant = Tenant(name="Test Tenant", is_active=True)
+async def mock_tenant(db_session: AsyncSession) -> Tenant:
+    """A persisted tenant that auth-protected endpoints resolve to."""
+    tenant = Tenant(id=uuid.uuid4(), name="Test Tenant", is_active=True)
+    db_session.add(tenant)
+    await db_session.commit()
     return tenant
 
 

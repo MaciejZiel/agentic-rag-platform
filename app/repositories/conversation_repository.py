@@ -20,24 +20,33 @@ class ConversationRepository:
         await self.db.refresh(conversation, attribute_names=["messages"])
         return conversation
 
-    async def get_by_id(self, conversation_id: uuid.UUID) -> Conversation | None:
+    async def get_for_tenant(
+        self, conversation_id: uuid.UUID, tenant_id: uuid.UUID,
+    ) -> Conversation | None:
         result = await self.db.execute(
             select(Conversation)
             .options(selectinload(Conversation.messages))
-            .where(Conversation.id == conversation_id)
+            .where(Conversation.id == conversation_id, Conversation.tenant_id == tenant_id)
         )
         return result.scalar_one_or_none()
 
     async def list_all(
-        self, skip: int = 0, limit: int = 20, tenant_id: uuid.UUID | None = None,
+        self, *, tenant_id: uuid.UUID, skip: int = 0, limit: int = 20,
     ) -> list[Conversation]:
-        query = select(Conversation)
-        if tenant_id is not None:
-            query = query.where(Conversation.tenant_id == tenant_id)
         result = await self.db.execute(
-            query.order_by(Conversation.updated_at.desc()).offset(skip).limit(limit)
+            select(Conversation)
+            .where(Conversation.tenant_id == tenant_id)
+            .order_by(Conversation.updated_at.desc())
+            .offset(skip)
+            .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def count(self, tenant_id: uuid.UUID) -> int:
+        result = await self.db.execute(
+            select(func.count(Conversation.id)).where(Conversation.tenant_id == tenant_id)
+        )
+        return result.scalar_one()
 
     async def add_message(self, message: ConversationMessage) -> ConversationMessage:
         self.db.add(message)
@@ -53,8 +62,6 @@ class ConversationRepository:
         )
         return result.scalar_one()
 
-    async def delete(self, conversation_id: uuid.UUID) -> None:
-        conv = await self.get_by_id(conversation_id)
-        if conv:
-            await self.db.delete(conv)
-            await self.db.flush()
+    async def delete(self, conversation: Conversation) -> None:
+        await self.db.delete(conversation)
+        await self.db.flush()

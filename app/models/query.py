@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Float, Integer, String, Text
+from sqlalchemy import Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -9,6 +9,13 @@ from app.models.base import BaseModel
 
 class ChatQuery(BaseModel):
     __tablename__ = "chat_queries"
+    __table_args__ = (
+        Index("ix_chat_queries_tenant_created", "tenant_id", "created_at"),
+    )
+
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=True
+    )
 
     question: Mapped[str] = mapped_column(Text, nullable=False)
     answer: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -21,6 +28,13 @@ class ChatQuery(BaseModel):
 
 class ExtractionRequest(BaseModel):
     __tablename__ = "extraction_requests"
+    __table_args__ = (
+        Index("ix_extraction_requests_tenant_created", "tenant_id", "created_at"),
+    )
+
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=True
+    )
 
     document_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     schema_json: Mapped[str] = mapped_column(Text, nullable=False)

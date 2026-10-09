@@ -16,8 +16,8 @@ llm = LLMClient()
 
 
 class CompareRequest(BaseModel):
-    document_id_a: str
-    document_id_b: str
+    document_id_a: uuid.UUID
+    document_id_b: uuid.UUID
     model: str | None = None
 
 
@@ -33,15 +33,16 @@ class CompareResponse(BaseModel):
 @router.post("", response_model=CompareResponse, summary="Compare documents")
 async def compare_documents(
     body: CompareRequest,
-    _tenant: Tenant = Depends(require_tenant),
+    tenant: Tenant = Depends(require_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> CompareResponse:
-    doc_a = (await db.execute(
-        select(Document).where(Document.id == uuid.UUID(body.document_id_a))
-    )).scalar_one_or_none()
-    doc_b = (await db.execute(
-        select(Document).where(Document.id == uuid.UUID(body.document_id_b))
-    )).scalar_one_or_none()
+    async def own_document(document_id: uuid.UUID) -> Document | None:
+        return (await db.execute(
+            select(Document).where(Document.id == document_id, Document.tenant_id == tenant.id)
+        )).scalar_one_or_none()
+
+    doc_a = await own_document(body.document_id_a)
+    doc_b = await own_document(body.document_id_b)
 
     if not doc_a or not doc_b:
         raise HTTPException(status_code=404, detail="One or both documents not found")

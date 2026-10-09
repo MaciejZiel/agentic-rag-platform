@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -56,41 +56,49 @@ class DashboardTimeseries(BaseModel):
 @router.get("", response_model=PlatformStats, summary="Get platform statistics")
 async def get_stats(
     db: AsyncSession = Depends(get_db),
-    _tenant: Tenant = Depends(require_tenant),
+    tenant: Tenant = Depends(require_tenant),
 ) -> PlatformStats:
+    """Usage statistics of the caller's tenant (never aggregated across tenants)."""
+    tid = tenant.id
+    own_docs = Document.tenant_id == tid
+    own_queries = ChatQuery.tenant_id == tid
+    own_extractions = ExtractionRequest.tenant_id == tid
+
     # Document stats
-    doc_count = (await db.execute(select(func.count(Document.id)))).scalar_one()
+    doc_count = (await db.execute(select(func.count(Document.id)).where(own_docs))).scalar_one()
     indexed_count = (await db.execute(
-        select(func.count(Document.id)).where(Document.status == "indexed")
+        select(func.count(Document.id)).where(own_docs, Document.status == "indexed")
     )).scalar_one()
     chunk_sum = (await db.execute(
-        select(func.coalesce(func.sum(Document.chunk_count), 0))
+        select(func.coalesce(func.sum(Document.chunk_count), 0)).where(own_docs)
     )).scalar_one()
 
     # Query stats
-    query_count = (await db.execute(select(func.count(ChatQuery.id)))).scalar_one()
-    query_tokens = (await db.execute(
-        select(func.coalesce(func.sum(ChatQuery.token_usage), 0))
-    )).scalar_one()
-    query_cost = (await db.execute(
-        select(func.coalesce(func.sum(ChatQuery.cost_usd), 0.0))
-    )).scalar_one()
+    query_count, query_tokens, query_cost = (await db.execute(
+        select(
+            func.count(ChatQuery.id),
+            func.coalesce(func.sum(ChatQuery.token_usage), 0),
+            func.coalesce(func.sum(ChatQuery.cost_usd), 0.0),
+        ).where(own_queries)
+    )).one()
 
     # Extraction stats
-    extract_count = (await db.execute(select(func.count(ExtractionRequest.id)))).scalar_one()
-    extract_tokens = (await db.execute(
-        select(func.coalesce(func.sum(ExtractionRequest.token_usage), 0))
-    )).scalar_one()
-    extract_cost = (await db.execute(
-        select(func.coalesce(func.sum(ExtractionRequest.cost_usd), 0.0))
-    )).scalar_one()
+    extract_count, extract_tokens, extract_cost = (await db.execute(
+        select(
+            func.count(ExtractionRequest.id),
+            func.coalesce(func.sum(ExtractionRequest.token_usage), 0),
+            func.coalesce(func.sum(ExtractionRequest.cost_usd), 0.0),
+        ).where(own_extractions)
+    )).one()
 
     # Conversation stats
-    conv_count = (await db.execute(select(func.count(Conversation.id)))).scalar_one()
+    conv_count = (await db.execute(
+        select(func.count(Conversation.id)).where(Conversation.tenant_id == tid)
+    )).scalar_one()
 
     # Recent queries
     recent = (await db.execute(
-        select(ChatQuery).order_by(ChatQuery.created_at.desc()).limit(5)
+        select(ChatQuery).where(own_queries).order_by(ChatQuery.created_at.desc()).limit(5)
     )).scalars().all()
 
     return PlatformStats(
@@ -100,7 +108,7 @@ async def get_stats(
         total_queries=query_count,
         total_extractions=extract_count,
         total_conversations=conv_count,
-        total_tokens_used=query_tokens + extract_tokens,
+        total_tokens_used=int(query_tokens) + int(extract_tokens),
         total_cost_usd=float(query_cost) + float(extract_cost),
         recent_queries=[
             {
@@ -118,11 +126,12 @@ async def get_stats(
 
 @router.get("/timeseries", response_model=DashboardTimeseries, summary="Get timeseries data")
 async def get_stats_timeseries(
-    days: int = 30,
+    days: int = Query(30, ge=1, le=366),
     db: AsyncSession = Depends(get_db),
-    _tenant: Tenant = Depends(require_tenant),
+    tenant: Tenant = Depends(require_tenant),
 ) -> DashboardTimeseries:
-    """Aggregated stats for dashboard charts."""
+    """Aggregated stats of the caller's tenant for dashboard charts."""
+    tid = tenant.id
     since = datetime.now(timezone.utc) - timedelta(days=days)
     # date() exists on both PostgreSQL and SQLite (used by the test suite); the rows
     # come back as date objects or ISO strings, and both are keyed via str() below.
@@ -137,7 +146,7 @@ async def get_stats_timeseries(
             func.coalesce(func.sum(ChatQuery.token_usage), 0).label("tokens"),
             func.coalesce(func.sum(ChatQuery.cost_usd), 0.0).label("cost"),
         )
-        .where(ChatQuery.created_at >= since)
+        .where(ChatQuery.tenant_id == tid, ChatQuery.created_at >= since)
         .group_by(date_col)
         .order_by(date_col)
     )).all()
@@ -148,7 +157,7 @@ async def get_stats_timeseries(
             ext_date_col.label("date"),
             func.count(ExtractionRequest.id).label("extractions"),
         )
-        .where(ExtractionRequest.created_at >= since)
+        .where(ExtractionRequest.tenant_id == tid, ExtractionRequest.created_at >= since)
         .group_by(ext_date_col)
     )).all()
 
@@ -178,6 +187,7 @@ async def get_stats_timeseries(
             func.coalesce(func.sum(ChatQuery.token_usage), 0).label("tokens"),
             func.coalesce(func.sum(ChatQuery.cost_usd), 0.0).label("cost"),
         )
+        .where(ChatQuery.tenant_id == tid)
         .group_by(ChatQuery.model)
         .order_by(func.count(ChatQuery.id).desc())
     )).all()
@@ -198,6 +208,7 @@ async def get_stats_timeseries(
             Document.status,
             func.count(Document.id).label("count"),
         )
+        .where(Document.tenant_id == tid)
         .group_by(Document.status)
     )).all()
 
@@ -227,25 +238,27 @@ class RateLimitStatus(BaseModel):
 @router.get("/rate-limits", response_model=RateLimitStatus, summary="Get rate limit status")
 async def get_rate_limit_status(
     db: AsyncSession = Depends(get_db),
-    _tenant: Tenant = Depends(require_tenant),
+    tenant: Tenant = Depends(require_tenant),
 ) -> RateLimitStatus:
-    """Current usage within the rate limit window."""
+    """The caller's tenant usage within the rate limit window."""
+    tid = tenant.id
     window_minutes = 60
     window_start = datetime.now(timezone.utc) - timedelta(minutes=window_minutes)
     reset_time = window_start + timedelta(minutes=window_minutes * 2)
 
     queries_used = (await db.execute(
-        select(func.count(ChatQuery.id)).where(ChatQuery.created_at >= window_start)
+        select(func.count(ChatQuery.id))
+        .where(ChatQuery.tenant_id == tid, ChatQuery.created_at >= window_start)
     )).scalar_one()
 
     tokens_used = (await db.execute(
         select(func.coalesce(func.sum(ChatQuery.token_usage), 0))
-        .where(ChatQuery.created_at >= window_start)
+        .where(ChatQuery.tenant_id == tid, ChatQuery.created_at >= window_start)
     )).scalar_one()
 
     extractions_used = (await db.execute(
         select(func.count(ExtractionRequest.id))
-        .where(ExtractionRequest.created_at >= window_start)
+        .where(ExtractionRequest.tenant_id == tid, ExtractionRequest.created_at >= window_start)
     )).scalar_one()
 
     return RateLimitStatus(

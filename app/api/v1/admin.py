@@ -26,7 +26,6 @@ class SystemHealth(BaseModel):
 class AdminStats(BaseModel):
     total_users: int
     verified_users: int
-    total_tenants: int
     total_documents: int
     total_queries: int
     total_extractions: int
@@ -56,41 +55,46 @@ class AdminOverview(BaseModel):
 
 @router.get("/overview", response_model=AdminOverview, summary="Get admin overview")
 async def admin_overview(
-    _tenant: Tenant = Depends(require_tenant),
+    tenant: Tenant = Depends(require_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> AdminOverview:
-    # Health
+    """Overview of the caller's own tenant (workspace).
+
+    There is no platform-operator role, so this endpoint never aggregates or
+    lists data across tenants.
+    """
+    tid = tenant.id
     health = SystemHealth(status="healthy", database="connected", uptime_info="operational")
 
-    # Stats
-    total_users = (await db.execute(select(func.count(User.id)))).scalar_one()
-    verified_users = (await db.execute(
-        select(func.count(User.id)).where(User.is_email_verified.is_(True))
-    )).scalar_one()
-    total_tenants = (await db.execute(select(func.count(Tenant.id)))).scalar_one()
-    total_docs = (await db.execute(select(func.count(Document.id)))).scalar_one()
-    total_queries = (await db.execute(select(func.count(ChatQuery.id)))).scalar_one()
-    total_extractions = (await db.execute(select(func.count(ExtractionRequest.id)))).scalar_one()
-    total_convs = (await db.execute(select(func.count(Conversation.id)))).scalar_one()
-    total_colls = (await db.execute(select(func.count(Collection.id)))).scalar_one()
-    total_assts = (await db.execute(select(func.count(Assistant.id)))).scalar_one()
-    total_tokens = (await db.execute(
-        select(func.coalesce(func.sum(ChatQuery.token_usage), 0))
-    )).scalar_one()
-    ext_tokens = (await db.execute(
-        select(func.coalesce(func.sum(ExtractionRequest.token_usage), 0))
-    )).scalar_one()
-    total_cost = (await db.execute(
-        select(func.coalesce(func.sum(ChatQuery.cost_usd), 0.0))
-    )).scalar_one()
-    ext_cost = (await db.execute(
-        select(func.coalesce(func.sum(ExtractionRequest.cost_usd), 0.0))
-    )).scalar_one()
+    async def count(model: type, *conditions: object) -> int:
+        return (await db.execute(
+            select(func.count(model.id)).where(model.tenant_id == tid, *conditions)
+        )).scalar_one()
+
+    total_users = await count(User)
+    verified_users = await count(User, User.is_email_verified.is_(True))
+    total_docs = await count(Document)
+    total_queries = await count(ChatQuery)
+    total_extractions = await count(ExtractionRequest)
+    total_convs = await count(Conversation)
+    total_colls = await count(Collection)
+    total_assts = await count(Assistant)
+    total_tokens, total_cost = (await db.execute(
+        select(
+            func.coalesce(func.sum(ChatQuery.token_usage), 0),
+            func.coalesce(func.sum(ChatQuery.cost_usd), 0.0),
+        ).where(ChatQuery.tenant_id == tid)
+    )).one()
+    ext_tokens, ext_cost = (await db.execute(
+        select(
+            func.coalesce(func.sum(ExtractionRequest.token_usage), 0),
+            func.coalesce(func.sum(ExtractionRequest.cost_usd), 0.0),
+        ).where(ExtractionRequest.tenant_id == tid)
+    )).one()
 
     stats = AdminStats(
         total_users=total_users,
         verified_users=verified_users,
-        total_tenants=total_tenants,
         total_documents=total_docs,
         total_queries=total_queries,
         total_extractions=total_extractions,
@@ -103,7 +107,7 @@ async def admin_overview(
 
     # Recent users
     users_result = await db.execute(
-        select(User).order_by(User.created_at.desc()).limit(10)
+        select(User).where(User.tenant_id == tid).order_by(User.created_at.desc()).limit(10)
     )
     recent_users = [
         UserInfo(
@@ -138,10 +142,14 @@ async def list_audit_logs(
     skip: int = 0,
     limit: int = 50,
     action: str | None = None,
-    _tenant: Tenant = Depends(require_tenant),
+    tenant: Tenant = Depends(require_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> list[AuditLogOut]:
-    query = select(AuditLog).order_by(AuditLog.created_at.desc())
+    query = (
+        select(AuditLog)
+        .where(AuditLog.tenant_id == tenant.id)
+        .order_by(AuditLog.created_at.desc())
+    )
     if action:
         query = query.where(AuditLog.action == action)
     query = query.offset(skip).limit(min(limit, 200))

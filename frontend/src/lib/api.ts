@@ -623,7 +623,6 @@ export async function compareDocuments(
 export interface AdminStats {
   total_users: number;
   verified_users: number;
-  total_tenants: number;
   total_documents: number;
   total_queries: number;
   total_extractions: number;
